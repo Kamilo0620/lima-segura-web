@@ -7,6 +7,9 @@ import MainLayout from './layouts/MainLayout'
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
+const ReportsPage = lazy(() => import('./pages/ReportsPage'))
+const ReportDetailPage = lazy(() => import('./pages/ReportDetailPage'))
+const CreateReportPage = lazy(() => import('./pages/CreateReportPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 export default function App() {
@@ -19,6 +22,9 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/reports/new" element={<CreateReportPage />} />
+            <Route path="/reports/:id" element={<ReportDetailPage />} />
           </Route>
         </Route>
 
