@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './routes/ProtectedRoute'
 import Spinner from './components/Spinner'
+import MainLayout from './layouts/MainLayout'
 
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
@@ -14,9 +15,11 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        
+
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<HomePage />} />
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<HomePage />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
