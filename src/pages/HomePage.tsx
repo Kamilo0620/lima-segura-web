@@ -1,81 +1,184 @@
-import { useCallback, useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { CheckCircle2, Clock, MapPinned, Plus } from 'lucide-react'
-import { reportService } from '../services/reportService'
-import { useFetch } from '../hooks/useFetch'
-import { useCatalogs } from '../hooks/useCatalogs'
-import { useAuth } from '../hooks/useAuth'
-import ReportsMap from '../components/ReportsMap'
-import { STATUS_COLORS } from '../utils/constants'
-import StatCard from '../components/StatCard'
-import Spinner from '../components/Spinner'
-import ErrorMessage from '../components/ErrorMessage'
-
-const MAP_LIMIT = 200
-
-const LEGEND = [
-  { label: 'Pendiente', color: STATUS_COLORS.PENDING },
-  { label: 'Validado', color: STATUS_COLORS.VALIDATED },
-  { label: 'No verificado', color: STATUS_COLORS.UNVERIFIED },
-]
+import { useCallback, useEffect, useState } from 'react'
+import TopBar from '../components/TopBar'
+import Sidebar from '../components/Sidebar'
+import IncidentsMap from '../components/IncidentsMap'
+import RiskLocationCard from '../components/RiskLocationCard'
+import NearbyIncidentsCard from '../components/NearbyIncidentsCard'
+import HourlyRiskCard from '../components/HourlyRiskCard'
+import CategoryDistributionCard from '../components/CategoryDistributionCard'
+import TopDangerZonesCard from '../components/TopDangerZonesCard'
+import SecurityAdviceBanner from '../components/SecurityAdviceBanner'
+import ReportIncidentModal from '../components/ReportIncidentModal'
+import IncidentDetailModal from '../components/IncidentDetailModal'
+import { incidentService } from '../services/incidentService'
+import { useUserLocation } from '../hooks/useUserLocation'
+import type { HeatmapPoint, IncidentSummary } from '../types'
 
 export default function HomePage() {
-  const { user } = useAuth()
-  const { categoryNames } = useCatalogs()
+  const [points, setPoints] = useState<HeatmapPoint[]>([])
+  const [recentIncidents, setRecentIncidents] = useState<IncidentSummary[]>([])
+  const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [selectedDistrict, setSelectedDistrict] = useState('')
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState('Ahora')
+  const [stats, setStats] = useState<any>(null)
 
-  const fetchReports = useCallback(
-    (signal: AbortSignal) => reportService.getAll({ page: 0, size: MAP_LIMIT }, signal),
-    [],
-  )
-  const { data, loading, error, refetch } = useFetch(fetchReports)
-  const reports = useMemo(() => data?.content ?? [], [data])
+  // Real browser geolocation and dynamic risk computation
+  const { locationState, requestCurrentLocation } = useUserLocation(points)
 
-  const stats = useMemo(
-    () => ({
-      total: data?.totalElements ?? 0,
-      pending: reports.filter((r) => r.status === 'PENDING').length,
-      validated: reports.filter((r) => r.status === 'VALIDATED').length,
-    }),
-    [data, reports],
-  )
+  // Fetch heatmap and incidents
+  const loadData = useCallback(async () => {
+    try {
+      // 1. Fetch Heatmap Points
+      const heatmapData = await incidentService.getHeatmap()
+      if (Array.isArray(heatmapData) && heatmapData.length > 0) {
+        setPoints(heatmapData)
+      }
+
+      // 2. Fetch Recent Incidents
+      const incidentsData = await incidentService.getIncidents({
+        district: selectedDistrict || undefined,
+        size: 20,
+      })
+      const list = incidentsData.content || []
+      setRecentIncidents(list)
+
+      // Fallback if heatmap was empty
+      if ((!heatmapData || heatmapData.length === 0) && list.length > 0) {
+        const fallback = list
+          .filter((i) => i.lat && i.lng)
+          .map((i) => ({
+            incidentId: i.id,
+            title: i.title,
+            lat: i.lat,
+            lng: i.lng,
+            incidentType: i.incidentType,
+            weight: (i.confidence || 0.8) * 8.0,
+            colorHint: 'red',
+            severity: 8,
+            sourceWeight: 0.9,
+            timeFactor: 1.0,
+          }))
+        setPoints(fallback)
+      }
+
+      // 3. Fetch Dashboard Stats from Backend
+      try {
+        const statsData = await incidentService.getDashboardStats()
+        if (statsData) {
+          setStats(statsData)
+        }
+      } catch {
+        // Fallback handled by individual cards
+      }
+    } catch (err) {
+      console.error('Error cargando datos del radar delictivo:', err)
+    }
+  }, [selectedDistrict])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // Listen to SSE live incidents
+  useEffect(() => {
+    let es: EventSource | null = null
+    try {
+      es = incidentService.createEventSource()
+      es.addEventListener('incident_published', () => {
+        loadData()
+      })
+    } catch {
+      // Ignore SSE error
+    }
+    return () => {
+      if (es) es.close()
+    }
+  }, [loadData])
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Hola, {user?.name}</h1>
-          <p className="text-slate-600">Así está la seguridad en Lima según los vecinos.</p>
-        </div>
-        <Link
-          to="/reports/new"
-          className="flex items-center justify-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-        >
-          <Plus className="h-4 w-4" />
-          Reportar incidente
-        </Link>
+    <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans">
+      {/* 1. TOP HEADER BAR */}
+      <TopBar
+        onSearch={(query) => setSelectedDistrict(query)}
+        onToggleFilters={() => setSelectedDistrict('')}
+      />
+
+      {/* 2. MAIN APPLICATION WORKSPACE */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar */}
+        <Sidebar />
+
+        {/* Center & Right Dashboard Content */}
+        <main className="flex-1 flex flex-col p-3 lg:p-4 gap-3 overflow-y-auto">
+          {/* Upper Section: Map (Left 65%) + Location Risk Cards (Right 35%) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-[460px] lg:h-[500px]">
+            {/* Interactive Heatmap Canvas */}
+            <div className="lg:col-span-8 h-[380px] lg:h-full">
+              <IncidentsMap
+                points={points}
+                selectedPointId={selectedIncidentId}
+                onSelectIncident={(id) => setSelectedIncidentId(id)}
+                selectedDistrict={selectedDistrict}
+                onSelectDistrict={(dist) => setSelectedDistrict(dist)}
+                selectedTimeFilter={selectedTimeFilter}
+                onSelectTimeFilter={(time) => setSelectedTimeFilter(time)}
+                userCoords={[locationState.lat, locationState.lng]}
+                userLabel={locationState.district}
+              />
+            </div>
+
+            {/* Right Column: Location Risk Badge + Nearby Incidents Feed */}
+            <div className="lg:col-span-4 flex flex-col gap-3 h-full">
+              <RiskLocationCard
+                score={locationState.riskScore}
+                level={locationState.riskLevel}
+                address={locationState.address}
+                radiusMeters={locationState.radiusMeters}
+                trendPercent={locationState.trendPercent}
+                isGpsActive={locationState.isGpsActive}
+                loading={locationState.loading}
+                onRequestGps={requestCurrentLocation}
+              />
+
+              <NearbyIncidentsCard
+                incidents={recentIncidents}
+                onSelectIncident={(id) => setSelectedIncidentId(id)}
+              />
+            </div>
+          </div>
+
+          {/* Middle Analytics Section: 3 KPI Cards matching Mockup */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <HourlyRiskCard data={stats?.hourlyRisk} />
+            <CategoryDistributionCard
+              totalCount={stats?.totalIncidents ? `${stats.totalIncidents}` : '1,248'}
+              stats={stats?.categoryDistribution}
+            />
+            <TopDangerZonesCard
+              zones={stats?.topDangerZones}
+              onSelectZone={(zone) => setSelectedDistrict(zone)}
+            />
+          </div>
+
+          {/* Bottom Security Advice Banner with Report Incident Action */}
+          <SecurityAdviceBanner onOpenReportModal={() => setReportModalOpen(true)} />
+        </main>
       </div>
 
-      {loading && <Spinner />}
-      {!loading && error && <ErrorMessage message={error} onRetry={refetch} />}
-      {!loading && !error && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard label="Reportes totales" value={stats.total} icon={<MapPinned className="h-6 w-6 text-slate-700" />} />
-            <StatCard label="Pendientes" value={stats.pending} icon={<Clock className="h-6 w-6 text-amber-500" />} />
-            <StatCard label="Validados" value={stats.validated} icon={<CheckCircle2 className="h-6 w-6 text-red-600" />} />
-          </div>
+      {/* Citizen Report Modal */}
+      <ReportIncidentModal
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        onIncidentReported={loadData}
+      />
 
-          <ReportsMap reports={reports} categoryNames={categoryNames} />
-
-          <div className="flex flex-wrap gap-4 text-sm text-slate-600">
-            {LEGEND.map((item) => (
-              <span key={item.label} className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                {item.label}
-              </span>
-            ))}
-          </div>
-        </>
+      {/* Incident Detail Dossier Modal */}
+      {selectedIncidentId && (
+        <IncidentDetailModal
+          incidentId={selectedIncidentId}
+          onClose={() => setSelectedIncidentId(null)}
+        />
       )}
     </div>
   )
