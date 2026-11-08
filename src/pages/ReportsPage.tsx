@@ -1,143 +1,137 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import IncidentDetailModal from '../components/IncidentDetailModal'
 import ReportIncidentModal from '../components/ReportIncidentModal'
+import Pagination from '../components/Pagination'
+import EmptyState from '../components/EmptyState'
+import ErrorMessage from '../components/ErrorMessage'
+import Spinner from '../components/Spinner'
 import { incidentService } from '../services/incidentService'
-import type { IncidentSummary, IncidentType } from '../types'
-import { INCIDENT_TYPE_CONFIG, LIMA_DISTRICTS } from '../utils/constants'
+import { useFetch } from '../hooks/useFetch'
+import { useDebounce } from '../hooks/useDebounce'
+import type { IncidentOrigin, IncidentStatus, IncidentType } from '../types'
 import {
-  FileText,
-  PlusCircle,
-  Search,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Shield,
-  Radio,
-} from 'lucide-react'
+  INCIDENT_TYPE_CONFIG,
+  LIMA_DISTRICTS,
+  ORIGIN_CONFIG,
+  STATUS_CONFIG,
+  formatDateTime,
+} from '../utils/constants'
+import { ExternalLink, FileText, PlusCircle, Search } from 'lucide-react'
+
+const PAGE_SIZE = 15
 
 export default function ReportsPage() {
-  const [incidents, setIncidents] = useState<IncidentSummary[]>([])
-  const [loading, setLoading] = useState(false)
-  const [page, setPage] = useState(0)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalElements, setTotalElements] = useState(0)
+  // Los filtros viven en la URL (?q=...&type=...&page=...) para poder compartir o recargar la búsqueda
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Number(searchParams.get('page') ?? 0)
+  const type = searchParams.get('type') ?? ''
+  const district = searchParams.get('district') ?? ''
+  const status = searchParams.get('status') ?? ''
+  const origin = searchParams.get('origin') ?? ''
+  const q = searchParams.get('q') ?? ''
+
+  // El texto se escribe en un estado local y se envía al servidor 400 ms después de dejar de teclear
+  const [searchText, setSearchText] = useState(q)
+  const debouncedSearch = useDebounce(searchText, 400)
+
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null)
   const [reportModalOpen, setReportModalOpen] = useState(false)
 
-  // Filter states
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedType, setSelectedType] = useState('')
-  const [selectedDistrict, setSelectedDistrict] = useState('')
-  const [selectedStatus, setSelectedStatus] = useState('')
+  const updateParam = (key: string, value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (value) next.set(key, value)
+      else next.delete(key)
+      if (key !== 'page') next.delete('page') // al cambiar un filtro se vuelve a la primera página
+      return next
+    })
+  }
 
-  const fetchReports = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await incidentService.getIncidents({
-        district: selectedDistrict || undefined,
-        incidentType: (selectedType as IncidentType) || undefined,
-        status: selectedStatus || undefined,
-        page,
-        size: 15,
-      })
-      setIncidents(data.content || [])
-      setTotalPages(data.totalPages || 1)
-      setTotalElements(data.totalElements || 0)
-    } catch (err) {
-      console.error('Error al cargar reportes:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [selectedDistrict, selectedType, selectedStatus, page])
+  const fetcher = useCallback(
+    (signal: AbortSignal) =>
+      incidentService.getIncidents(
+        {
+          type: type as IncidentType,
+          district,
+          status: status as IncidentStatus,
+          origin: origin as IncidentOrigin,
+          search: q,
+          page,
+          size: PAGE_SIZE,
+        },
+        signal,
+      ),
+    [type, district, status, origin, q, page],
+  )
+  const { data, loading, error, refetch } = useFetch(fetcher)
 
+  // Cuando el usuario deja de escribir, el texto pasa a la URL (y eso dispara la búsqueda en el servidor)
   useEffect(() => {
-    fetchReports()
-  }, [fetchReports])
+    if (debouncedSearch.trim() !== q) updateParam('q', debouncedSearch.trim())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch])
 
-  const filteredIncidents = incidents.filter((i) => {
-    if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
-    const titleMatch = i.title?.toLowerCase().includes(q)
-    const descMatch = (i.summary || i.description || '')?.toLowerCase().includes(q)
-    const locMatch = (i.address || i.exactLocation || '')?.toLowerCase().includes(q)
-    const distMatch = (i.districtName || i.district?.name || '')?.toLowerCase().includes(q)
-    return titleMatch || descMatch || locMatch || distMatch
-  })
+  const selectClass =
+    'rounded-xl border border-slate-800 bg-[#070b14] px-3 py-2 text-xs text-slate-200 focus:border-red-500 focus:outline-none'
 
   return (
     <div className="flex min-h-[calc(100vh-64px)] bg-[#050811] text-slate-100">
       <Sidebar />
 
-      <main className="flex-1 flex flex-col p-4 lg:p-6 gap-4 overflow-y-auto">
-        {/* Header Section */}
+      <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 lg:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-[#0d1424]/90 p-5 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-950/80 border border-blue-500/40 text-blue-400">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/40 bg-blue-950/80 text-blue-400">
               <FileText className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-lg font-black text-white flex items-center gap-2">
-                Centro de Reportes &amp; Denuncias Delictivas
-                <span className="rounded-full bg-blue-950/60 border border-blue-500/40 px-2.5 py-0.5 text-xs font-bold text-blue-300">
-                  {totalElements} expedientes
-                </span>
+              <h1 className="flex items-center gap-2 text-lg font-black text-white">
+                Reportes de incidentes
+                {data && (
+                  <span className="rounded-full border border-blue-500/40 bg-blue-950/60 px-2.5 py-0.5 text-xs font-bold text-blue-300">
+                    {data.totalElements} resultados
+                  </span>
+                )}
               </h1>
               <p className="text-xs text-slate-400">
-                Historial auditado de incidentes procesados por IA y reportes generados por la comunidad.
+                Incidentes extraídos de noticias y reportes enviados por vecinos.
               </p>
             </div>
           </div>
 
           <button
             onClick={() => setReportModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-red-600/30 hover:bg-red-500 transition"
+            className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-red-600/30 transition hover:bg-red-500"
           >
             <PlusCircle className="h-4 w-4" />
-            <span>Reportar Incidente</span>
+            Reportar incidente
           </button>
         </div>
 
-        {/* Filter Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-2xl border border-slate-800 bg-[#0d1424]/70 p-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-800 bg-[#0d1424]/70 p-4 md:grid-cols-5">
+          <div className="relative md:col-span-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por palabra clave, calle..."
+              type="search"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Buscar por título o calle..."
               className="w-full rounded-xl border border-slate-800 bg-[#070b14] py-2 pl-9 pr-3 text-xs text-slate-200 placeholder-slate-500 focus:border-red-500 focus:outline-none"
             />
           </div>
 
-          {/* Crime Type */}
-          <select
-            value={selectedType}
-            onChange={(e) => {
-              setSelectedType(e.target.value)
-              setPage(0)
-            }}
-            className="rounded-xl border border-slate-800 bg-[#070b14] px-3 py-2 text-xs text-slate-200 focus:border-red-500 focus:outline-none"
-          >
-            <option value="">Todos los tipos de delito</option>
-            {(Object.keys(INCIDENT_TYPE_CONFIG) as IncidentType[]).map((type) => (
-              <option key={type} value={type}>
-                {INCIDENT_TYPE_CONFIG[type]?.label || type}
+          <select value={type} onChange={(e) => updateParam('type', e.target.value)} className={selectClass}>
+            <option value="">Todos los tipos</option>
+            {(Object.keys(INCIDENT_TYPE_CONFIG) as IncidentType[]).map((t) => (
+              <option key={t} value={t}>
+                {INCIDENT_TYPE_CONFIG[t].label}
               </option>
             ))}
           </select>
 
-          {/* District */}
-          <select
-            value={selectedDistrict}
-            onChange={(e) => {
-              setSelectedDistrict(e.target.value)
-              setPage(0)
-            }}
-            className="rounded-xl border border-slate-800 bg-[#070b14] px-3 py-2 text-xs text-slate-200 focus:border-red-500 focus:outline-none"
-          >
+          <select value={district} onChange={(e) => updateParam('district', e.target.value)} className={selectClass}>
             <option value="">Todos los distritos</option>
             {LIMA_DISTRICTS.map((d) => (
               <option key={d} value={d}>
@@ -146,166 +140,113 @@ export default function ReportsPage() {
             ))}
           </select>
 
-          {/* Status */}
-          <select
-            value={selectedStatus}
-            onChange={(e) => {
-              setSelectedStatus(e.target.value)
-              setPage(0)
-            }}
-            className="rounded-xl border border-slate-800 bg-[#070b14] px-3 py-2 text-xs text-slate-200 focus:border-red-500 focus:outline-none"
-          >
+          <select value={status} onChange={(e) => updateParam('status', e.target.value)} className={selectClass}>
             <option value="">Cualquier estado</option>
-            <option value="VERIFIED">Verificado (Oficial/Confirmado)</option>
-            <option value="PENDING_REVIEW">En Revisión / Pendiente</option>
+            <option value="PUBLISHED">Publicado</option>
+            <option value="PENDING_REVIEW">Pendiente de confirmación</option>
+            <option value="VALIDATED">Validado</option>
             <option value="REJECTED">Descartado</option>
+          </select>
+
+          <select value={origin} onChange={(e) => updateParam('origin', e.target.value)} className={selectClass}>
+            <option value="">Cualquier origen</option>
+            <option value="CITIZEN">Reporte vecinal</option>
+            <option value="NEWSPAPER">Prensa</option>
+            <option value="YOUTUBE">YouTube</option>
+            <option value="SAMPLE">Datos de ejemplo</option>
           </select>
         </div>
 
-        {/* Reports Feed Table / List */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0d1424]/90 overflow-hidden shadow-xl">
-          {loading ? (
-            <div className="p-12 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
-              <span className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-              Cargando expedientes del radar...
-            </div>
-          ) : filteredIncidents.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 text-xs">
-              No se encontraron incidentes con los filtros seleccionados.
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-800/80">
-              {filteredIncidents.map((incident) => {
-                const config = (INCIDENT_TYPE_CONFIG as any)[incident.incidentType] || {
-                  label: incident.incidentType,
-                  color: 'red',
-                  bg: 'bg-red-950/60 text-red-400 border-red-500/40',
-                }
-                const isVerified = incident.status === 'VALIDATED' || (incident.status as any) === 'VERIFIED'
-                const isCitizen = (incident.origin as any) === 'CITIZEN' || incident.title.includes('Ciudadano')
-                const sev = incident.severity || Math.round((incident.confidence || 0.8) * 10)
+        {loading ? (
+          <div className="flex h-48 items-center justify-center">
+            <Spinner />
+          </div>
+        ) : error ? (
+          <ErrorMessage message={error} onRetry={refetch} />
+        ) : !data || data.content.length === 0 ? (
+          <EmptyState message="No se encontraron incidentes con esos filtros." />
+        ) : (
+          <div className="divide-y divide-slate-800/80 overflow-hidden rounded-2xl border border-slate-800 bg-[#0d1424]/90 shadow-xl">
+            {data.content.map((incident) => {
+              const config = INCIDENT_TYPE_CONFIG[incident.incidentType] ?? INCIDENT_TYPE_CONFIG.OTHER
+              const originCfg = ORIGIN_CONFIG[incident.origin]
+              const statusCfg = STATUS_CONFIG[incident.status]
+              const sev = config.severity
 
-                return (
-                  <div
-                    key={incident.id}
-                    onClick={() => setSelectedIncidentId(incident.id)}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-slate-800/40 transition cursor-pointer gap-3"
-                  >
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="mt-1">
-                        <span
-                          className={`inline-block h-3 w-3 rounded-full ${
-                            sev >= 8
-                              ? 'bg-red-500 shadow-[0_0_8px_#ef4444]'
-                              : sev >= 5
-                              ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'
-                              : 'bg-emerald-500'
-                          }`}
-                        />
+              return (
+                <button
+                  type="button"
+                  key={incident.id}
+                  onClick={() => setSelectedIncidentId(incident.id)}
+                  className="flex w-full flex-col justify-between gap-3 p-4 text-left transition hover:bg-slate-800/40 sm:flex-row sm:items-center"
+                >
+                  <div className="flex flex-1 items-start gap-3">
+                    <span
+                      className={`mt-1.5 inline-block h-3 w-3 shrink-0 rounded-full ${
+                        sev >= 8 ? 'bg-red-500' : sev >= 5 ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
+                    />
+                    <div>
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${config.bg} ${config.color} ${config.border}`}>
+                          {config.label}
+                        </span>
+                        <span className="rounded-md border border-slate-800 bg-[#070b14] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                          {incident.districtName || 'Distrito no identificado'}
+                        </span>
+                        {originCfg && (
+                          <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${originCfg.badge}`}>
+                            {originCfg.label}
+                          </span>
+                        )}
+                        {statusCfg && (
+                          <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${statusCfg.badge}`}>
+                            {statusCfg.label}
+                            {incident.origin === 'CITIZEN' && incident.status === 'PENDING_REVIEW' &&
+                              ` · ${incident.confirmationsCount ?? 0}/3`}
+                          </span>
+                        )}
                       </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span
-                            className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${config.bg || config.badgeBg || 'bg-red-950/60 text-red-400 border-red-500/40'}`}
-                          >
-                            {config.label}
-                          </span>
-                          <span className="rounded-md border border-slate-800 bg-[#070b14] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
-                            {incident.districtName || incident.district?.name || 'Lima'}
-                          </span>
-                          {isCitizen ? (
-                            <span className="rounded-md border border-purple-500/40 bg-purple-950/60 px-2 py-0.5 text-[10px] font-bold text-purple-300 flex items-center gap-1">
-                              <Radio className="h-3 w-3" /> Reporte Vecinal
-                            </span>
-                          ) : (
-                            <span className="rounded-md border border-blue-500/40 bg-blue-950/60 px-2 py-0.5 text-[10px] font-bold text-blue-300 flex items-center gap-1">
-                              <Shield className="h-3 w-3" /> Prensa Oficial
-                            </span>
-                          )}
-                          {isVerified ? (
-                            <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
-                              <CheckCircle2 className="h-3 w-3" /> Verificado
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-[10px] text-amber-400 font-bold">
-                              <Clock className="h-3 w-3" /> En Revisión
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="text-sm font-bold text-slate-100 hover:text-red-400 transition">
-                          {incident.title}
-                        </h3>
-                        <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">
-                          {incident.address || incident.exactLocation || incident.summary || incident.description}
+                      <h3 className="text-sm font-bold text-slate-100">{incident.title}</h3>
+                      {(incident.address || incident.summary) && (
+                        <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">
+                          {incident.address || incident.summary}
                         </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 shrink-0 justify-between sm:justify-end">
-                      <div className="text-right text-[11px] text-slate-400">
-                        <div>Severidad: <span className="font-bold text-white">{sev}/10</span></div>
-                        <div className="text-[10px] text-slate-500">
-                          {new Date(incident.occurredAt).toLocaleDateString('es-PE', {
-                            day: '2-digit',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:text-white"
-                        title="Ver expediente detallado"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </button>
+                      )}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between border-t border-slate-800/80 px-4 py-3 text-xs text-slate-400">
-            <div>
-              Página {page + 1} de {totalPages}
-            </div>
-            <div className="flex gap-2">
-              <button
-                disabled={page <= 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="rounded-lg border border-slate-800 bg-[#070b14] px-3 py-1 text-slate-300 disabled:opacity-40 hover:bg-slate-800"
-              >
-                Anterior
-              </button>
-              <button
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded-lg border border-slate-800 bg-[#070b14] px-3 py-1 text-slate-300 disabled:opacity-40 hover:bg-slate-800"
-              >
-                Siguiente
-              </button>
-            </div>
+                  <div className="flex shrink-0 items-center justify-between gap-4 sm:justify-end">
+                    <div className="text-right text-[11px] text-slate-400">
+                      <div>
+                        Gravedad: <span className="font-bold text-white">{sev}/10</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">{formatDateTime(incident.occurredAt)}</div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-slate-400" />
+                  </div>
+                </button>
+              )
+            })}
           </div>
-        </div>
+        )}
+
+        {data && (
+          <Pagination
+            page={page}
+            totalPages={data.totalPages}
+            onPageChange={(p) => updateParam('page', String(p))}
+          />
+        )}
       </main>
 
-      {/* Modals */}
       <ReportIncidentModal
         isOpen={reportModalOpen}
         onClose={() => setReportModalOpen(false)}
-        onIncidentReported={fetchReports}
+        onIncidentReported={refetch}
       />
 
-      {selectedIncidentId && (
-        <IncidentDetailModal
-          incidentId={selectedIncidentId}
-          onClose={() => setSelectedIncidentId(null)}
-        />
-      )}
+      <IncidentDetailModal incidentId={selectedIncidentId} onClose={() => setSelectedIncidentId(null)} />
     </div>
   )
 }

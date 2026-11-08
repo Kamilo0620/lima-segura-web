@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { INCIDENT_TYPE_CONFIG, formatTimeAgo } from '../utils/constants'
+import { distanceMeters, formatDistance } from '../utils/format'
 import Sidebar from '../components/Sidebar'
 import { useUserLocation } from '../hooks/useUserLocation'
 import { incidentService } from '../services/incidentService'
@@ -25,10 +28,27 @@ export default function AlertsPage() {
   const { locationState, requestCurrentLocation } = useUserLocation([])
 
   useEffect(() => {
-    incidentService.getIncidents({ size: 10 }).then((res) => {
-      setRecentIncidents(res.content || [])
-    })
+    const controller = new AbortController()
+    incidentService
+      .getIncidents({ size: 200 }, controller.signal)
+      .then((res) => setRecentIncidents(res.content))
+      .catch(() => setRecentIncidents([]))
+    return () => controller.abort()
   }, [])
+
+  // Incidentes reales dentro del radio elegido, del más cercano al más lejano
+  const nearby = useMemo(() => {
+    if (locationState.lat == null || locationState.lng == null) return []
+    const { lat, lng } = locationState
+    return recentIncidents
+      .map((inc) => ({ inc, dist: distanceMeters(lat, lng, inc.lat, inc.lng) }))
+      .filter(({ inc, dist }) => {
+        if (dist > radiusMeters) return false
+        if (criticalOnly) return (INCIDENT_TYPE_CONFIG[inc.incidentType]?.severity ?? 0) >= 8
+        return true
+      })
+      .sort((a, b) => a.dist - b.dist)
+  }, [recentIncidents, locationState, radiusMeters, criticalOnly])
 
   const triggerTestAlert = () => {
     setTestAlertTriggered(true)
@@ -66,13 +86,10 @@ export default function AlertsPage() {
             </div>
             <div>
               <h1 className="text-lg font-black text-white flex items-center gap-2">
-                Centro de Notificaciones &amp; Alertas Tempranas
-                <span className="rounded-full bg-emerald-950/60 border border-emerald-500/40 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
-                  Radar Activo
-                </span>
+                Mis alertas
               </h1>
               <p className="text-xs text-slate-400">
-                Configuración del perímetro de seguridad, avisos sonoros de peligro inminente y monitoreo perimetral.
+                Elige un radio alrededor de tu ubicación y revisa los incidentes registrados dentro de él.
               </p>
             </div>
           </div>
@@ -93,10 +110,10 @@ export default function AlertsPage() {
               <AlertOctagon className="h-6 w-6 text-red-400 animate-pulse" />
               <div>
                 <div className="text-xs font-black uppercase tracking-wider text-red-200">
-                  ALERTA PERIMETRAL: EVENTO CRÍTICO EN CURSO
+                  ALERTA DE PRUEBA
                 </div>
                 <div className="text-xs text-red-300">
-                  Se ha detectado un asalto con arma de fuego a menos de {radiusMeters} metros de tu ubicación ({locationState.address}).
+                  Así se verá un aviso cuando se publique un incidente a menos de {formatDistance(radiusMeters)} de ti. (Esto es solo una prueba.)
                 </div>
               </div>
             </div>
@@ -124,7 +141,7 @@ export default function AlertsPage() {
             </div>
 
             <p className="text-xs text-slate-400 mb-4">
-              Recibirás notificaciones push y advertencias en pantalla cuando se detecte un delito dentro de este radio alrededor de tus coordenadas GPS.
+              La lista de abajo muestra los incidentes registrados dentro de este radio alrededor de tu ubicación GPS.
             </p>
 
             <input
@@ -147,8 +164,12 @@ export default function AlertsPage() {
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-emerald-400" />
                 <div>
-                  <span className="text-slate-200 font-semibold">{locationState.district}</span>
-                  <span className="text-[11px] text-slate-400 block truncate max-w-[200px]">{locationState.address}</span>
+                  <span className="text-slate-200 font-semibold">{locationState.district ?? 'Tu ubicación'}</span>
+                  <span className="text-[11px] text-slate-400 block truncate max-w-[200px]">
+                    {locationState.loading
+                      ? 'Obteniendo ubicación...'
+                      : locationState.address ?? locationState.error ?? 'Ubicación no disponible'}
+                  </span>
                 </div>
               </div>
               <button
@@ -216,46 +237,47 @@ export default function AlertsPage() {
           </div>
         </div>
 
-        {/* Recent Triggered Alerts List */}
+        {/* Incidentes reales dentro del radio */}
         <div className="rounded-2xl border border-slate-800 bg-[#0d1424]/90 p-5 shadow-xl">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>Registro de Alertas Detectadas por el Radar</span>
-              <span className="text-[11px] font-normal text-slate-400">(Últimas 24 horas)</span>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-white">
+              Incidentes dentro de tu radio ({formatDistance(radiusMeters)})
             </h3>
-            <span className="text-xs text-blue-400 font-semibold">{recentIncidents.length} activas</span>
+            <span className="text-xs font-semibold text-blue-400">{nearby.length} encontrados</span>
           </div>
 
-          <div className="space-y-2">
-            {recentIncidents.slice(0, 6).map((item) => {
-              const sev = item.severity || Math.round((item.confidence || 0.8) * 10)
-              const dist = item.districtName || item.district?.name || 'Lima'
-              const loc = item.address || item.exactLocation || 'Vía pública'
-
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-[#070b14] text-xs hover:border-slate-700 transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={`h-2.5 w-2.5 rounded-full ${sev >= 8 ? 'bg-red-500' : 'bg-amber-500'}`} />
-                    <div>
-                      <div className="font-bold text-slate-200">{item.title}</div>
-                      <div className="text-[11px] text-slate-400">{dist} • {loc}</div>
+          {locationState.lat == null ? (
+            <p className="py-6 text-center text-xs text-slate-500">Activa tu ubicación para ver los incidentes cercanos.</p>
+          ) : nearby.length === 0 ? (
+            <p className="py-6 text-center text-xs text-slate-500">No hay incidentes registrados dentro de este radio.</p>
+          ) : (
+            <div className="space-y-2">
+              {nearby.slice(0, 10).map(({ inc, dist }) => {
+                const type = INCIDENT_TYPE_CONFIG[inc.incidentType] ?? INCIDENT_TYPE_CONFIG.OTHER
+                return (
+                  <Link
+                    key={inc.id}
+                    to={`/incidents/${inc.id}`}
+                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#070b14] p-3 text-xs transition hover:border-slate-700"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`h-2.5 w-2.5 rounded-full ${type.severity >= 8 ? 'bg-red-500' : 'bg-amber-500'}`} />
+                      <div>
+                        <div className="font-bold text-slate-200">{inc.title}</div>
+                        <div className="text-[11px] text-slate-400">
+                          {type.label} • {inc.districtName || 'Distrito no identificado'}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="rounded-md bg-red-950/80 border border-red-500/40 px-2 py-0.5 text-[10px] font-bold text-red-300">
-                      Nivel {sev}/10
-                    </span>
-                    <div className="text-[10px] text-slate-500 mt-1">
-                      {new Date(item.occurredAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                    <div className="text-right">
+                      <span className="text-[11px] font-bold text-red-400">{formatDistance(dist)}</span>
+                      <div className="mt-1 text-[10px] text-slate-500">{formatTimeAgo(inc.occurredAt)}</div>
                     </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
       </main>
     </div>

@@ -85,7 +85,7 @@ export default function SettingsPage() {
                 <input
                   type="text"
                   disabled
-                  value={user?.name || 'Jasyr Valdez'}
+                  value={user?.name ?? ''}
                   className="w-full rounded-xl border border-slate-800 bg-[#070b14] px-3.5 py-2 text-slate-200"
                 />
               </div>
@@ -95,7 +95,7 @@ export default function SettingsPage() {
                 <input
                   type="text"
                   disabled
-                  value={user?.email || 'jasyr.valdez@utec.edu.pe'}
+                  value={user?.email ?? ''}
                   className="w-full rounded-xl border border-slate-800 bg-[#070b14] px-3.5 py-2 text-slate-200"
                 />
               </div>
@@ -103,7 +103,7 @@ export default function SettingsPage() {
               <div>
                 <label className="text-slate-400 font-semibold block mb-1">Rol en la Plataforma</label>
                 <span className="inline-block rounded-lg border border-red-500/40 bg-red-950/60 px-3 py-1.5 font-bold text-red-300">
-                  {user?.role === 'ADMIN' ? 'ADMINISTRADOR DE SISTEMA' : 'CIUDADANO VERIFICADO'}
+                  {user?.role === 'ADMIN' ? 'ADMINISTRADOR DE SISTEMA' : 'CIUDADANO'}
                 </span>
               </div>
             </div>

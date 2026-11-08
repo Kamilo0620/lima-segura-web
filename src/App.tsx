@@ -15,7 +15,7 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
 const CommunityPage = lazy(() => import('./pages/CommunityPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const HelpPage = lazy(() => import('./pages/HelpPage'))
-const IncidentsPage = lazy(() => import('./pages/IncidentsPage'))
+const IncidentDetailPage = lazy(() => import('./pages/IncidentDetailPage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
@@ -38,15 +38,20 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/mapa" element={<MapRiskPage />} />
           <Route path="/reportes" element={<ReportsPage />} />
-          <Route path="/alertas" element={<AlertsPage />} />
           <Route path="/historico" element={<HistoryPage />} />
           <Route path="/estadisticas" element={<AnalyticsPage />} />
           <Route path="/comunidad" element={<CommunityPage />} />
-          <Route path="/configuracion" element={<SettingsPage />} />
           <Route path="/ayuda" element={<HelpPage />} />
-          <Route path="/incidents" element={<IncidentsPage />} />
+          <Route path="/incidents/:id" element={<IncidentDetailPage />} />
+
+          {/* Rutas que requieren sesión */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/alertas" element={<AlertsPage />} />
+            <Route path="/configuracion" element={<SettingsPage />} />
+          </Route>
 
           {/* Legacy redirects */}
+          <Route path="/incidents" element={<Navigate to="/reportes" replace />} />
           <Route path="/reports" element={<Navigate to="/reportes" replace />} />
           <Route path="/reports/*" element={<Navigate to="/reportes" replace />} />
 

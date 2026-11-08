@@ -35,28 +35,16 @@ export default function HelpPage() {
       desc: 'Orientación y auxilio ante violencia familiar y de género, 24 horas al día, confidencial y gratuito.',
       color: 'border-purple-500/60 bg-purple-950/40 text-purple-400',
     },
-    {
-      name: 'Serenazgo Metropolitano de Lima',
-      number: '(01) 318-5050',
-      desc: 'Patrullaje integrado y asistencia en vías principales y distritos de Lima Metropolitana.',
-      color: 'border-emerald-500/60 bg-emerald-950/40 text-emerald-400',
-    },
-    {
-      name: 'Central Policial Callao',
-      number: '(01) 453-3333',
-      desc: 'Comando de operaciones y comisarías de la Región Policial del Callao.',
-      color: 'border-cyan-500/60 bg-cyan-950/40 text-cyan-400',
-    },
   ]
 
   const faqs = [
     {
       q: '¿Cómo calcula la plataforma el Nivel de Riesgo en mi ubicación?',
-      a: 'El índice de riesgo (0 a 100) se calcula en tiempo real mediante la fórmula de proximidad espacial (distancia Haversine) contra todos los incidentes delictivos registrados. Incidentes a menos de 150m ejercen una ponderación crítica (3.5x), entre 150m y 500m (1.5x), y hasta 1000m (0.4x), considerando la severidad del delito y su atenuación temporal.',
+      a: 'Con tu ubicación GPS, buscamos los incidentes del mapa que están a menos de 1 km (distancia Haversine). Cada uno suma su gravedad multiplicada por un peso según la cercanía: x3 si está a menos de 150 m, x1.5 hasta 500 m y x0.5 hasta 1 km. El resultado se limita a 100. Si no hay incidentes cerca, el índice es 0.',
     },
     {
       q: '¿De dónde se obtienen los datos de delitos e incidentes?',
-      a: 'Lima Segura cuenta con un motor autónomo de ingesta continua que sondea cada 5 minutos más de 20 fuentes oficiales: feeds RSS y scraping de periódicos nacionales (El Comercio, RPP, Trome, La República, Panamericana) y canales de noticias de YouTube, extrayendo y geolocalizando delitos mediante modelos de lenguaje (LLM). También se integran reportes ciudadanos validados.',
+      a: 'De dos fuentes: (1) noticias de periódicos y canales de YouTube, de las que un modelo de lenguaje (LLM) extrae el tipo de delito, el lugar y la fecha; y (2) reportes de vecinos registrados, que se publican cuando otros 3 usuarios confirman que también lo vieron. Los datos marcados como "Dato de ejemplo" se cargaron solo para la demostración.',
     },
     {
       q: '¿Qué es el decaimiento temporal de incidentes?',
@@ -64,7 +52,7 @@ export default function HelpPage() {
     },
     {
       q: '¿Cómo puedo reportar un incidente ocurrido en mi zona?',
-      a: 'Haz clic en el botón azul "Reportar incidente" en la parte inferior o en la sección Reportes. Completa el tipo de delito, dirección y detalles. Si tienes el GPS activo, tus coordenadas se capturarán automáticamente para alimentar el mapa de calor.',
+      a: 'Inicia sesión y pulsa "Reportar incidente" (en Reportes o en Comunidad). Elige el tipo de delito, marca el punto en el mapa (o usa tu ubicación) y agrega detalles. Tu reporte queda "Pendiente de confirmación" hasta que 3 vecinos distintos pulsen "Yo también lo vi"; entonces se publica en el mapa.',
     },
   ]
 

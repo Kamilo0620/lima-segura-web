@@ -48,18 +48,36 @@ export interface PageResponse<T> {
 
 export type IncidentType =
   | 'HOMICIDE'
+  | 'FEMICIDE'
   | 'ARMED_ROBBERY'
+  | 'ROBBERY'
+  | 'VEHICLE_THEFT'
   | 'THEFT'
   | 'EXTORTION'
   | 'KIDNAPPING'
   | 'ASSAULT'
+  | 'SEXUAL_ASSAULT'
+  | 'SHOOTING'
+  | 'FRAUD'
   | 'CYBERCRIME'
   | 'DRUG_TRAFFICKING'
+  | 'VANDALISM'
+  | 'HIT_AND_RUN'
   | 'OTHER'
 
-export type IncidentOrigin = 'NEWS' | 'OFFICIAL' | 'CITIZEN'
+// Debe coincidir con el enum IncidentOrigin del backend
+export type IncidentOrigin =
+  | 'NEWS'
+  | 'NEWSPAPER'
+  | 'YOUTUBE'
+  | 'OFFICIAL'
+  | 'OFFICIAL_PNP'
+  | 'OFFICIAL_INEI'
+  | 'CITIZEN'
+  | 'SAMPLE'
 
-export type IncidentStatus = 'PENDING_REVIEW' | 'VALIDATED' | 'REJECTED' | 'VERIFIED'
+// Debe coincidir con el enum IncidentStatus del backend
+export type IncidentStatus = 'PENDING_REVIEW' | 'PUBLISHED' | 'REJECTED' | 'VALIDATED' | 'VERIFIED'
 export type GeoPrecision = 'EXACT_ADDRESS' | 'INTERSECTION' | 'NEIGHBORHOOD' | 'DISTRICT'
 export type OccurredAtPrecision = 'EXACT' | 'APPROXIMATE' | 'DAY' | 'UNKNOWN'
 
@@ -100,6 +118,8 @@ export interface IncidentSummary {
   origin: IncidentOrigin
   victimsCount?: number
   createdAt: string
+  reporterId?: number | null
+  confirmationsCount?: number
 }
 
 export interface SourceReference {
@@ -113,6 +133,32 @@ export interface IncidentDetail extends IncidentSummary {
   llmModel?: string
   evidenceExcerpt?: string
   sources: SourceReference[]
+  confirmedByMe?: boolean
+}
+
+export interface ConfirmationResult {
+  incidentId: number
+  confirmations: number
+  required: number
+  status: IncidentStatus
+}
+
+export interface CitizenReportRequest {
+  incidentType: IncidentType
+  title: string
+  summary?: string
+  address?: string
+  districtName?: string
+  lat?: number
+  lng?: number
+}
+
+export interface DashboardStats {
+  totalIncidents: number
+  riskLocation: { score: number; level: string; address: string } | null
+  hourlyRisk: { hour: string; score: number }[]
+  categoryDistribution: { category: string; type: string; percentage: number; count: number; color: string }[]
+  topDangerZones: { rank: number; zone: string; level: string; score: number }[]
 }
 
 export interface IncidentFilters {
@@ -124,6 +170,7 @@ export interface IncidentFilters {
   district?: string
   origin?: IncidentOrigin | ''
   minConfidence?: number
+  search?: string
   page?: number
   size?: number
 }

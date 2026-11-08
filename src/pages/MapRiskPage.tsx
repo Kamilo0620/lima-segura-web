@@ -6,6 +6,7 @@ import { incidentService } from '../services/incidentService'
 import { useUserLocation } from '../hooks/useUserLocation'
 import type { HeatmapPoint, IncidentSummary } from '../types'
 import { RefreshCw, ShieldAlert, Sparkles } from 'lucide-react'
+import { INCIDENT_TYPE_CONFIG } from '../utils/constants'
 
 export default function MapRiskPage() {
   const [points, setPoints] = useState<HeatmapPoint[]>([])
@@ -15,7 +16,7 @@ export default function MapRiskPage() {
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('Ahora')
   const [loading, setLoading] = useState(false)
 
-  const { locationState, requestCurrentLocation } = useUserLocation(points)
+  const { locationState, risk, requestCurrentLocation } = useUserLocation(points)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -98,8 +99,12 @@ export default function MapRiskPage() {
               onSelectDistrict={(dist) => setSelectedDistrict(dist)}
               selectedTimeFilter={selectedTimeFilter}
               onSelectTimeFilter={(time) => setSelectedTimeFilter(time)}
-              userCoords={[locationState.lat, locationState.lng]}
-              userLabel={locationState.district}
+              userCoords={
+                locationState.lat != null && locationState.lng != null
+                  ? [locationState.lat, locationState.lng]
+                  : undefined
+              }
+              userLabel={locationState.district ?? 'TÚ'}
             />
           </div>
 
@@ -108,16 +113,26 @@ export default function MapRiskPage() {
             {/* Risk Index Summary Card */}
             <div className="rounded-2xl border border-slate-800 bg-[#0d1424]/90 p-4">
               <div className="text-xs font-bold text-slate-300 mb-2">Evaluación del Sector</div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-black text-red-500">{locationState.riskScore}/100</div>
-                  <div className="text-xs font-bold text-slate-300">{locationState.district}</div>
-                  <div className="text-[11px] text-slate-400 truncate max-w-[180px]">{locationState.address}</div>
+              {risk ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-black text-red-500">{risk.score}/100</div>
+                    <div className="text-xs font-bold text-slate-300">{locationState.district ?? 'Tu ubicación'}</div>
+                    <div className="text-[11px] text-slate-400 truncate max-w-[180px]">{locationState.address}</div>
+                    <div className="text-[10px] text-slate-500">{risk.nearbyCount} incidentes a menos de 1 km</div>
+                  </div>
+                  <div className="rounded-xl border border-red-500/50 bg-red-950/60 px-2.5 py-1 text-center font-black text-xs text-red-400">
+                    {risk.level}
+                  </div>
                 </div>
-                <div className="rounded-xl border border-red-500/50 bg-red-950/60 px-2.5 py-1 text-center font-black text-xs text-red-400">
-                  {locationState.riskLevel}
+              ) : (
+                <div className="space-y-2 text-[11px] text-slate-400">
+                  <p>{locationState.loading ? 'Obteniendo tu ubicación...' : locationState.error ?? 'Activa tu ubicación para evaluar tu zona.'}</p>
+                  <button onClick={requestCurrentLocation} className="rounded-lg bg-slate-800 px-2.5 py-1 font-bold text-slate-200 hover:bg-slate-700">
+                    Usar mi ubicación
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Incident Feed List */}
@@ -135,7 +150,7 @@ export default function MapRiskPage() {
                     className="p-2.5 rounded-xl border border-slate-800/80 bg-[#070b14]/80 hover:border-slate-700 hover:bg-slate-900/60 cursor-pointer transition text-xs"
                   >
                     <div className="flex items-center justify-between text-[11px] font-bold">
-                      <span className="text-red-400">{inc.incidentType}</span>
+                      <span className="text-red-400">{INCIDENT_TYPE_CONFIG[inc.incidentType]?.label ?? inc.incidentType}</span>
                       <span className="text-[10px] text-slate-400 font-normal">
                         {inc.districtName || inc.district?.name || 'Lima'}
                       </span>

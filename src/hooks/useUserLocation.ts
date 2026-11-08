@@ -1,180 +1,121 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { HeatmapPoint } from '../types'
 import { LIMA_DISTRICTS } from '../utils/constants'
+import { distanceMeters } from '../utils/format'
+import { incidentService } from '../services/incidentService'
+
+export type RiskLevel = 'ALTO' | 'MEDIO' | 'BAJO'
 
 export interface UserLocationState {
-  lat: number
-  lng: number
-  address: string
-  district: string
-  radiusMeters: number
-  riskScore: number
-  riskLevel: 'ALTO' | 'MEDIO' | 'BAJO'
-  trendPercent: string
+  lat: number | null
+  lng: number | null
+  address: string | null
+  district: string | null
   isGpsActive: boolean
   loading: boolean
   error: string | null
 }
 
-// Haversine formula in meters
-function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3 // Earth radius in meters
-  const phi1 = (lat1 * Math.PI) / 180
-  const phi2 = (lat2 * Math.PI) / 180
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180
+export interface LocationRisk {
+  score: number
+  level: RiskLevel
+  /** Incidentes del mapa a menos de RISK_RADIUS_METERS */
+  nearbyCount: number
+  radiusMeters: number
+}
 
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+export const RISK_RADIUS_METERS = 1000
 
-  return R * c
+/**
+ * Índice de riesgo 0–100 calculado SOLO con los incidentes reales del mapa:
+ * cada incidente suma su gravedad, con más peso mientras más cerca esté.
+ * Sin incidentes cerca, el índice es 0.
+ */
+export function computeRisk(lat: number, lng: number, points: HeatmapPoint[]): LocationRisk {
+  let raw = 0
+  let nearbyCount = 0
+  for (const p of points) {
+    const d = distanceMeters(lat, lng, p.lat, p.lng)
+    if (d > RISK_RADIUS_METERS) continue
+    nearbyCount++
+    const severity = p.severity ?? 5
+    const proximity = d <= 150 ? 3 : d <= 500 ? 1.5 : 0.5
+    raw += severity * proximity * (p.timeFactor ?? 1)
+  }
+  const score = Math.min(100, Math.round(raw))
+  const level: RiskLevel = score >= 70 ? 'ALTO' : score >= 40 ? 'MEDIO' : 'BAJO'
+  return { score, level, nearbyCount, radiusMeters: RISK_RADIUS_METERS }
 }
 
 export function useUserLocation(points: HeatmapPoint[]) {
   const [locationState, setLocationState] = useState<UserLocationState>({
-    lat: -12.056,
-    lng: -77.042,
-    address: 'Av. Alfonso Ugarte 1235, Breña',
-    district: 'Breña',
-    radiusMeters: 100,
-    riskScore: 78,
-    riskLevel: 'ALTO',
-    trendPercent: '+12%',
+    lat: null,
+    lng: null,
+    address: null,
+    district: null,
     isGpsActive: false,
     loading: false,
     error: null,
   })
 
-  // Evaluate risk at specific coordinates against the incident points
-  const evaluateRiskAt = useCallback(
-    (lat: number, lng: number, addressStr?: string, districtStr?: string) => {
-      // Find all points within 1500 meters
-      const nearbyPoints = points.map((p) => ({
-        ...p,
-        distMeters: calculateDistanceMeters(lat, lng, p.lat, p.lng),
-      }))
-
-      // Incident density calculation: closer incidents and higher severity exert greater weight
-      const within100m = nearbyPoints.filter((p) => p.distMeters <= 150)
-      const within500m = nearbyPoints.filter((p) => p.distMeters <= 500)
-      const within1000m = nearbyPoints.filter((p) => p.distMeters <= 1000)
-
-      let rawScore = 35 // Base urban risk in Lima
-
-      // Add points based on proximity
-      within100m.forEach((p) => {
-        rawScore += (p.severity || 7) * 3.5 * (p.timeFactor || 1.0)
-      })
-      within500m.forEach((p) => {
-        rawScore += (p.severity || 7) * 1.5 * (p.timeFactor || 0.7)
-      })
-      within1000m.forEach((p) => {
-        rawScore += (p.severity || 7) * 0.4 * (p.timeFactor || 0.4)
-      })
-
-      const finalScore = Math.min(96, Math.max(18, Math.round(rawScore)))
-      const level: 'ALTO' | 'MEDIO' | 'BAJO' =
-        finalScore >= 70 ? 'ALTO' : finalScore >= 45 ? 'MEDIO' : 'BAJO'
-      const trend = finalScore > 65 ? '+12%' : finalScore > 40 ? '+5%' : '-3%'
-
-      setLocationState((prev) => ({
-        ...prev,
-        lat,
-        lng,
-        address: addressStr || prev.address,
-        district: districtStr || prev.district,
-        riskScore: finalScore,
-        riskLevel: level,
-        trendPercent: trend,
-        loading: false,
-      }))
-    },
-    [points],
-  )
-
-  // Request browser geolocation
   const requestCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setLocationState((prev) => ({
-        ...prev,
-        error: 'Geolocalización no soportada por este navegador',
-      }))
+      setLocationState((prev) => ({ ...prev, error: 'Tu navegador no permite obtener la ubicación' }))
       return
     }
 
-    setLocationState((prev) => ({ ...prev, loading: true }))
+    setLocationState((prev) => ({ ...prev, loading: true, error: null }))
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords
+        let address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+        let district: string | null = null
 
-        let resolvedAddress = `Coordenadas: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
-        let resolvedDistrict = 'Lima'
-
-        // Try reverse geocoding via Nominatim
+        // API externa (OpenStreetMap Nominatim): coordenadas → dirección
         try {
-          const resp = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-            { headers: { 'Accept-Language': 'es' } },
-          )
-          const data = await resp.json()
-          if (data && data.address) {
-            const road = data.address.road || data.address.suburb || 'Calle'
+          const data = await incidentService.reverseGeocode(latitude, longitude)
+          if (data?.address) {
+            const road = data.address.road || data.address.suburb
             const num = data.address.house_number ? ` ${data.address.house_number}` : ''
             const suburb = data.address.suburb || data.address.city_district || ''
-            resolvedAddress = `${road}${num}${suburb ? ', ' + suburb : ''}`
-
-            // Match district
-            const matched = LIMA_DISTRICTS.find(
-              (d) =>
-                data.display_name.toLowerCase().includes(d.toLowerCase()) ||
-                suburb.toLowerCase().includes(d.toLowerCase()),
-            )
-            if (matched) resolvedDistrict = matched
+            if (road) address = `${road}${num}${suburb && suburb !== road ? ', ' + suburb : ''}`
+            const text = `${data.display_name ?? ''} ${suburb}`.toLowerCase()
+            district = LIMA_DISTRICTS.find((d) => text.includes(d.toLowerCase())) ?? null
           }
         } catch {
-          // Keep coordinate text fallback
+          // si falla, nos quedamos con las coordenadas como texto
         }
 
-        setLocationState((prev) => ({
-          ...prev,
-          isGpsActive: true,
+        setLocationState({
           lat: latitude,
           lng: longitude,
-          address: resolvedAddress,
-          district: resolvedDistrict,
-        }))
-
-        evaluateRiskAt(latitude, longitude, resolvedAddress, resolvedDistrict)
+          address,
+          district,
+          isGpsActive: true,
+          loading: false,
+          error: null,
+        })
       },
-      (err) => {
-        console.warn('Geolocation denied or unavailable:', err.message)
+      () => {
         setLocationState((prev) => ({
           ...prev,
           loading: false,
-          error: 'Acceso a ubicación denegado o no disponible. Usando Breña como ubicación de referencia.',
+          error: 'No se pudo acceder a tu ubicación. Actívala para ver el riesgo cerca de ti.',
         }))
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     )
-  }, [evaluateRiskAt])
-
-  // Automatically request on mount
-  useEffect(() => {
-    requestCurrentLocation()
   }, [])
 
-  // Re-evaluate whenever points update
   useEffect(() => {
-    if (points.length > 0) {
-      evaluateRiskAt(locationState.lat, locationState.lng)
-    }
-  }, [points])
+    requestCurrentLocation()
+  }, [requestCurrentLocation])
 
-  return {
-    locationState,
-    requestCurrentLocation,
-  }
+  const risk = useMemo<LocationRisk | null>(() => {
+    if (locationState.lat == null || locationState.lng == null) return null
+    return computeRisk(locationState.lat, locationState.lng, points)
+  }, [locationState.lat, locationState.lng, points])
+
+  return { locationState, risk, requestCurrentLocation }
 }

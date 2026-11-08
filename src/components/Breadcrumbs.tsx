@@ -8,16 +8,16 @@ export interface Crumb {
 
 export default function Breadcrumbs({ items }: { items: Crumb[] }) {
   return (
-    <nav aria-label="Ubicación" className="flex items-center gap-1 text-sm text-slate-500">
+    <nav aria-label="Ubicación" className="flex items-center gap-1 text-xs text-slate-400">
       {items.map((item, index) => (
         <span key={item.label} className="flex items-center gap-1">
           {index > 0 && <ChevronRight className="h-4 w-4" />}
           {item.to ? (
-            <Link to={item.to} className="hover:text-slate-900 hover:underline">
+            <Link to={item.to} className="hover:text-white hover:underline">
               {item.label}
             </Link>
           ) : (
-            <span className="font-medium text-slate-900">{item.label}</span>
+            <span className="font-semibold text-slate-200">{item.label}</span>
           )}
         </span>
       ))}

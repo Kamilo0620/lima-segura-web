@@ -1,8 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Bell, Filter, Search, Shield, User, LogOut, Settings } from 'lucide-react'
 import LimaSeguraLogo from './LimaSeguraLogo'
 import { useAuth } from '../hooks/useAuth'
+import { useIncidentStream } from '../hooks/useIncidentStream'
+import { incidentService } from '../services/incidentService'
+import { INCIDENT_TYPE_CONFIG } from '../utils/constants'
+
+interface LiveNotification {
+  id: number
+  title: string
+  desc: string
+  receivedAt: Date
+}
 
 interface TopBarProps {
   onSearch?: (query: string) => void
@@ -10,38 +20,31 @@ interface TopBarProps {
 }
 
 export default function TopBar({ onSearch, onToggleFilters }: TopBarProps) {
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, isAdmin, logout } = useAuth()
   const navigate = useNavigate()
   const [currentTime, setCurrentTime] = useState('')
   const [currentDate, setCurrentDate] = useState('')
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(3)
+  const [unreadCount, setUnreadCount] = useState(0)
   const [searchVal, setSearchVal] = useState('')
+  // Notificaciones reales: llegan por SSE cuando el backend publica un incidente
+  const [notifications, setNotifications] = useState<LiveNotification[]>([])
 
-  const notifications = [
-    {
-      id: 1,
-      title: 'Zona Crítica Detectada',
-      desc: 'Av. Alfonso Ugarte registra índice de riesgo 78/100 (ALTO) en Breña.',
-      time: 'Hace 8 min',
-      type: 'danger',
-    },
-    {
-      id: 2,
-      title: 'Nuevo Reporte Ciudadano',
-      desc: 'Alerta comunitaria por robo de vehículo en Jr. Zorritos.',
-      time: 'Hace 25 min',
-      type: 'warning',
-    },
-    {
-      id: 3,
-      title: 'Sondeo de Noticias Completado',
-      desc: 'Se procesaron 23 fuentes periodísticas y canales de YouTube en tiempo real.',
-      time: 'Hace 1 hora',
-      type: 'info',
-    },
-  ]
+  const handlePublished = useCallback(async (incidentId: number) => {
+    let title = 'Nuevo incidente publicado'
+    let desc = `Incidente #${incidentId}`
+    try {
+      const detail = await incidentService.getIncidentDetail(incidentId)
+      title = INCIDENT_TYPE_CONFIG[detail.incidentType]?.label ?? title
+      desc = [detail.title, detail.districtName].filter(Boolean).join(' · ')
+    } catch {
+      // si falla el detalle, mostramos el aviso genérico
+    }
+    setNotifications((prev) => [{ id: incidentId, title, desc, receivedAt: new Date() }, ...prev].slice(0, 10))
+    setUnreadCount((c) => c + 1)
+  }, [])
+  useIncidentStream(handlePublished)
 
   useEffect(() => {
     const updateTime = () => {
@@ -111,9 +114,9 @@ export default function TopBar({ onSearch, onToggleFilters }: TopBarProps) {
         {/* Live Clock matching mockup */}
         <div className="hidden sm:flex flex-col text-right">
           <div className="text-[10px] text-slate-400">
-            Hora actual: <span className="font-mono text-slate-200 font-bold">{currentTime || '14:37:22'}</span>
+            Hora actual: <span className="font-mono text-slate-200 font-bold">{currentTime}</span>
           </div>
-          <div className="text-[10px] text-slate-400">{currentDate || '20 de mayo, 2025'}</div>
+          <div className="text-[10px] text-slate-400">{currentDate}</div>
         </div>
 
         {/* Notifications Icon with Badge & Popover */}
@@ -149,19 +152,26 @@ export default function TopBar({ onSearch, onToggleFilters }: TopBarProps) {
               </div>
 
               <div className="space-y-2">
+                {notifications.length === 0 && (
+                  <p className="py-4 text-center text-[11px] text-slate-500">
+                    Sin alertas nuevas. Te avisaremos cuando se publique un incidente.
+                  </p>
+                )}
                 {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className="rounded-xl border border-slate-800/80 bg-[#0d1424] p-2.5 hover:border-slate-700 transition"
+                  <Link
+                    key={`${n.id}-${n.receivedAt.getTime()}`}
+                    to={`/incidents/${n.id}`}
+                    onClick={() => setNotificationsOpen(false)}
+                    className="block rounded-xl border border-slate-800/80 bg-[#0d1424] p-2.5 transition hover:border-slate-700"
                   >
                     <div className="flex items-center justify-between text-[11px] font-bold">
-                      <span className={n.type === 'danger' ? 'text-red-400' : n.type === 'warning' ? 'text-amber-400' : 'text-blue-400'}>
-                        {n.title}
+                      <span className="text-red-400">{n.title}</span>
+                      <span className="text-[9px] font-normal text-slate-400">
+                        {n.receivedAt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      <span className="text-[9px] text-slate-400 font-normal">{n.time}</span>
                     </div>
-                    <p className="text-[11px] text-slate-300 mt-1 leading-tight">{n.desc}</p>
-                  </div>
+                    <p className="mt-1 text-[11px] leading-tight text-slate-300">{n.desc}</p>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -179,10 +189,10 @@ export default function TopBar({ onSearch, onToggleFilters }: TopBarProps) {
             </div>
             <div className="flex flex-col text-left leading-none">
               <span className="text-xs font-semibold text-slate-200">
-                {user?.name || 'Jasyr Valdez'}
+                {user?.name ?? 'Invitado'}
               </span>
               <span className="text-[10px] text-slate-400 font-medium">
-                {user?.role === 'ADMIN' ? 'Administrador' : 'Ciudadano'}
+                {!isAuthenticated ? 'Sin sesión' : isAdmin ? 'Administrador' : 'Ciudadano'}
               </span>
             </div>
           </button>
@@ -190,22 +200,26 @@ export default function TopBar({ onSearch, onToggleFilters }: TopBarProps) {
           {/* Profile Dropdown */}
           {profileOpen && (
             <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-800 bg-[#090d16] p-1.5 shadow-2xl z-50">
-              <Link
-                to="/admin"
-                onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
-              >
-                <Shield className="h-3.5 w-3.5 text-red-500" />
-                <span>Consola Admin</span>
-              </Link>
-              <Link
-                to="/incidents"
-                onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
-              >
-                <Settings className="h-3.5 w-3.5 text-slate-400" />
-                <span>Catálogo de Incidentes</span>
-              </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                >
+                  <Shield className="h-3.5 w-3.5 text-red-500" />
+                  <span>Consola Admin</span>
+                </Link>
+              )}
+              {isAuthenticated && (
+                <Link
+                  to="/configuracion"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                >
+                  <Settings className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Configuración</span>
+                </Link>
+              )}
               <div className="my-1 border-t border-slate-800" />
               {isAuthenticated ? (
                 <button

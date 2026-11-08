@@ -12,7 +12,8 @@ import ReportIncidentModal from '../components/ReportIncidentModal'
 import IncidentDetailModal from '../components/IncidentDetailModal'
 import { incidentService } from '../services/incidentService'
 import { useUserLocation } from '../hooks/useUserLocation'
-import type { HeatmapPoint, IncidentSummary } from '../types'
+import type { DashboardStats, HeatmapPoint, IncidentSummary } from '../types'
+import { useIncidentStream } from '../hooks/useIncidentStream'
 
 export default function HomePage() {
   const [points, setPoints] = useState<HeatmapPoint[]>([])
@@ -21,19 +22,17 @@ export default function HomePage() {
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [selectedDistrict, setSelectedDistrict] = useState('')
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('Ahora')
-  const [stats, setStats] = useState<any>(null)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
 
   // Real browser geolocation and dynamic risk computation
-  const { locationState, requestCurrentLocation } = useUserLocation(points)
+  const { locationState, risk, requestCurrentLocation } = useUserLocation(points)
 
   // Fetch heatmap and incidents
   const loadData = useCallback(async () => {
     try {
       // 1. Fetch Heatmap Points
       const heatmapData = await incidentService.getHeatmap()
-      if (Array.isArray(heatmapData) && heatmapData.length > 0) {
-        setPoints(heatmapData)
-      }
+      setPoints(Array.isArray(heatmapData) ? heatmapData : [])
 
       // 2. Fetch Recent Incidents
       const incidentsData = await incidentService.getIncidents({
@@ -42,25 +41,6 @@ export default function HomePage() {
       })
       const list = incidentsData.content || []
       setRecentIncidents(list)
-
-      // Fallback if heatmap was empty
-      if ((!heatmapData || heatmapData.length === 0) && list.length > 0) {
-        const fallback = list
-          .filter((i) => i.lat && i.lng)
-          .map((i) => ({
-            incidentId: i.id,
-            title: i.title,
-            lat: i.lat,
-            lng: i.lng,
-            incidentType: i.incidentType,
-            weight: (i.confidence || 0.8) * 8.0,
-            colorHint: 'red',
-            severity: 8,
-            sourceWeight: 0.9,
-            timeFactor: 1.0,
-          }))
-        setPoints(fallback)
-      }
 
       // 3. Fetch Dashboard Stats from Backend
       try {
@@ -80,21 +60,10 @@ export default function HomePage() {
     loadData()
   }, [loadData])
 
-  // Listen to SSE live incidents
-  useEffect(() => {
-    let es: EventSource | null = null
-    try {
-      es = incidentService.createEventSource()
-      es.addEventListener('incident_published', () => {
-        loadData()
-      })
-    } catch {
-      // Ignore SSE error
-    }
-    return () => {
-      if (es) es.close()
-    }
-  }, [loadData])
+  // Tiempo real: cuando el backend publica un incidente, recargamos el mapa y las tarjetas
+  useIncidentStream(() => {
+    loadData()
+  })
 
   return (
     <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans">
@@ -123,26 +92,33 @@ export default function HomePage() {
                 onSelectDistrict={(dist) => setSelectedDistrict(dist)}
                 selectedTimeFilter={selectedTimeFilter}
                 onSelectTimeFilter={(time) => setSelectedTimeFilter(time)}
-                userCoords={[locationState.lat, locationState.lng]}
-                userLabel={locationState.district}
+                userCoords={
+                  locationState.lat != null && locationState.lng != null
+                    ? [locationState.lat, locationState.lng]
+                    : undefined
+                }
+                userLabel={locationState.district ?? 'TÚ'}
               />
             </div>
 
             {/* Right Column: Location Risk Badge + Nearby Incidents Feed */}
             <div className="lg:col-span-4 flex flex-col gap-3 h-full">
               <RiskLocationCard
-                score={locationState.riskScore}
-                level={locationState.riskLevel}
+                risk={risk}
                 address={locationState.address}
-                radiusMeters={locationState.radiusMeters}
-                trendPercent={locationState.trendPercent}
                 isGpsActive={locationState.isGpsActive}
                 loading={locationState.loading}
+                error={locationState.error}
                 onRequestGps={requestCurrentLocation}
               />
 
               <NearbyIncidentsCard
                 incidents={recentIncidents}
+                userCoords={
+                  locationState.lat != null && locationState.lng != null
+                    ? { lat: locationState.lat, lng: locationState.lng }
+                    : null
+                }
                 onSelectIncident={(id) => setSelectedIncidentId(id)}
               />
             </div>
@@ -152,7 +128,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <HourlyRiskCard data={stats?.hourlyRisk} />
             <CategoryDistributionCard
-              totalCount={stats?.totalIncidents ? `${stats.totalIncidents}` : '1,248'}
+              totalCount={stats ? stats.totalIncidents.toLocaleString('es-PE') : '—'}
               stats={stats?.categoryDistribution}
             />
             <TopDangerZonesCard
