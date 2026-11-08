@@ -32,7 +32,7 @@ export default function NearbyIncidentsCard({ incidents = [], userCoords, onSele
     .slice(0, 5)
 
   return (
-    <div className="flex flex-1 flex-col rounded-2xl border border-slate-800 bg-[#0d1424]/90 p-4 shadow-xl backdrop-blur-md">
+    <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-800 bg-[#0d1424]/90 p-4 shadow-xl backdrop-blur-md">
       <div className="mb-2 flex items-center justify-between border-b border-slate-800/80 pb-3">
         <h3 className="text-xs font-bold text-slate-200">
           {userCoords ? 'Incidentes más cercanos a ti' : 'Incidentes recientes'}
@@ -45,7 +45,7 @@ export default function NearbyIncidentsCard({ incidents = [], userCoords, onSele
       {items.length === 0 ? (
         <p className="py-6 text-center text-[11px] text-slate-500">Todavía no hay incidentes registrados.</p>
       ) : (
-        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
           {items.map(({ inc, dist }) => {
             const { icon: Icon, color } = ICONS[inc.incidentType] ?? DEFAULT_ICON
             return (

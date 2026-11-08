@@ -1,7 +1,8 @@
 import { useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Calendar, ExternalLink, MapPin, Newspaper } from 'lucide-react'
-import { CircleMarker, MapContainer, TileLayer } from 'react-leaflet'
+import { CircleMarker, MapContainer } from 'react-leaflet'
+import DarkTiles from '../components/DarkTiles'
 import 'leaflet/dist/leaflet.css'
 import Sidebar from '../components/Sidebar'
 import Breadcrumbs from '../components/Breadcrumbs'
@@ -114,10 +115,7 @@ export default function IncidentDetailPage() {
         <aside className="space-y-4">
           <div className="h-56 overflow-hidden rounded-2xl border border-slate-800">
             <MapContainer center={[incident.lat, incident.lng]} zoom={15} className="h-full w-full" scrollWheelZoom={false}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              />
+              <DarkTiles />
               <CircleMarker
                 center={[incident.lat, incident.lng]}
                 radius={10}

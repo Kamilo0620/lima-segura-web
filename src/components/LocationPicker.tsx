@@ -1,4 +1,5 @@
-import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { CircleMarker, MapContainer, useMap, useMapEvents } from 'react-leaflet'
+import DarkTiles from './DarkTiles'
 import { useEffect } from 'react'
 import 'leaflet/dist/leaflet.css'
 
@@ -35,10 +36,7 @@ export default function LocationPicker({ value, onChange }: LocationPickerProps)
   return (
     <div className="h-48 overflow-hidden rounded-xl border border-slate-800">
       <MapContainer center={value ? [value.lat, value.lng] : LIMA_CENTER} zoom={12} className="h-full w-full">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        />
+        <DarkTiles />
         <ClickHandler onChange={onChange} />
         <FollowValue value={value} />
         {value && (

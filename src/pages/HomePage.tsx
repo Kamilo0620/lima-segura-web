@@ -81,7 +81,7 @@ export default function HomePage() {
         {/* Center & Right Dashboard Content */}
         <main className="flex-1 flex flex-col p-3 lg:p-4 gap-3 overflow-y-auto">
           {/* Upper Section: Map (Left 65%) + Location Risk Cards (Right 35%) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-[460px] lg:h-[500px]">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:grid-rows-[500px]">
             {/* Interactive Heatmap Canvas */}
             <div className="lg:col-span-8 h-[380px] lg:h-full">
               <IncidentsMap
@@ -102,7 +102,7 @@ export default function HomePage() {
             </div>
 
             {/* Right Column: Location Risk Badge + Nearby Incidents Feed */}
-            <div className="lg:col-span-4 flex flex-col gap-3 h-full">
+            <div className="lg:col-span-4 flex min-h-0 flex-col gap-3 lg:h-full">
               <RiskLocationCard
                 risk={risk}
                 address={locationState.address}
