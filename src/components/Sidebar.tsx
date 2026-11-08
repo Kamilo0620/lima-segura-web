@@ -124,9 +124,9 @@ export default function Sidebar() {
               En tiempo real
             </span>
           </div>
-          <div>Última actualización: {lastUpdateTime || '14:37:10'}</div>
+          <div>Última actualización: {lastUpdateTime}</div>
           <div className="text-[9px] text-slate-400 pt-1">
-            &copy; 2025 LIMA SEGURA. Todos los derechos reservados.
+            &copy; 2026 LIMA SEGURA. Todos los derechos reservados.
           </div>
         </div>
       </div>

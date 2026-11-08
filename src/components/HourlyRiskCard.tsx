@@ -9,23 +9,8 @@ interface HourlyRiskCardProps {
   data?: HourlyRiskItem[]
 }
 
-const DEFAULT_HOURLY: HourlyRiskItem[] = [
-  { hour: '00:00', score: 14 },
-  { hour: '02:00', score: 10 },
-  { hour: '04:00', score: 8 },
-  { hour: '06:00', score: 12 },
-  { hour: '08:00', score: 25 },
-  { hour: '10:00', score: 42 },
-  { hour: '12:00', score: 68 },
-  { hour: '14:00', score: 82 },
-  { hour: '16:00', score: 95 },
-  { hour: '18:00', score: 88 },
-  { hour: '20:00', score: 65 },
-  { hour: '22:00', score: 45 },
-  { hour: '24:00', score: 20 },
-]
-
-export default function HourlyRiskCard({ data = DEFAULT_HOURLY }: HourlyRiskCardProps) {
+export default function HourlyRiskCard({ data = [] }: HourlyRiskCardProps) {
+  const hasData = data.some((d) => d.score > 0)
   // Determine color according to risk score
   const getBarColor = (score: number) => {
     if (score >= 75) return 'bg-red-500 shadow-[0_0_8px_#ef4444]'
@@ -39,10 +24,11 @@ export default function HourlyRiskCard({ data = DEFAULT_HOURLY }: HourlyRiskCard
       {/* Title */}
       <div className="flex items-center justify-between text-xs mb-3">
         <div className="flex items-center gap-1.5 font-bold text-slate-200">
-          <span>Riesgo por franja horaria</span>
-          <span className="text-[10px] text-slate-400 font-normal">(hoy)</span>
+          <span>Incidentes por hora del día</span>
         </div>
-        <Info className="h-3.5 w-3.5 text-slate-400" />
+        <span title="100 = la hora con más incidentes publicados">
+          <Info className="h-3.5 w-3.5 text-slate-400" />
+        </span>
       </div>
 
       {/* Bar Chart Area */}
@@ -56,10 +42,16 @@ export default function HourlyRiskCard({ data = DEFAULT_HOURLY }: HourlyRiskCard
           <div className="border-b border-slate-800/40 w-full">0</div>
         </div>
 
+        {!hasData && (
+          <p className="absolute inset-0 z-20 flex items-center justify-center text-[11px] text-slate-500">
+            Sin datos todavía.
+          </p>
+        )}
+
         {/* Dynamic Bars */}
         <div className="relative z-10 flex w-full items-end justify-between gap-1 h-full pl-6">
           {data.map((item, idx) => {
-            const heightPercent = Math.min(100, Math.max(8, item.score))
+            const heightPercent = Math.min(100, Math.max(2, item.score))
             const colorClass = getBarColor(item.score)
 
             return (

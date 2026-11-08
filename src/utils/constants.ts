@@ -68,6 +68,70 @@ export const INCIDENT_TYPE_CONFIG: Record<
     severity: 4,
     icon: 'Terminal',
   },
+  ROBBERY: {
+    label: 'Robo',
+    color: 'text-orange-400',
+    bg: 'bg-orange-500/20',
+    border: 'border-orange-500/40',
+    severity: 7,
+    icon: 'Footprints',
+  },
+  VEHICLE_THEFT: {
+    label: 'Robo de vehículo',
+    color: 'text-orange-300',
+    bg: 'bg-orange-500/20',
+    border: 'border-orange-500/40',
+    severity: 6,
+    icon: 'Car',
+  },
+  FEMICIDE: {
+    label: 'Feminicidio',
+    color: 'text-red-400',
+    bg: 'bg-red-500/20',
+    border: 'border-red-500/40',
+    severity: 10,
+    icon: 'Crosshair',
+  },
+  SHOOTING: {
+    label: 'Balacera',
+    color: 'text-red-400',
+    bg: 'bg-red-500/20',
+    border: 'border-red-500/40',
+    severity: 9,
+    icon: 'Crosshair',
+  },
+  SEXUAL_ASSAULT: {
+    label: 'Agresión sexual',
+    color: 'text-purple-400',
+    bg: 'bg-purple-500/20',
+    border: 'border-purple-500/40',
+    severity: 8,
+    icon: 'ShieldAlert',
+  },
+  FRAUD: {
+    label: 'Estafa',
+    color: 'text-yellow-400',
+    bg: 'bg-yellow-500/20',
+    border: 'border-yellow-500/40',
+    severity: 4,
+    icon: 'AlertTriangle',
+  },
+  VANDALISM: {
+    label: 'Vandalismo',
+    color: 'text-slate-300',
+    bg: 'bg-slate-500/20',
+    border: 'border-slate-500/40',
+    severity: 3,
+    icon: 'AlertTriangle',
+  },
+  HIT_AND_RUN: {
+    label: 'Atropello y fuga',
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/20',
+    border: 'border-amber-500/40',
+    severity: 6,
+    icon: 'Car',
+  },
   OTHER: {
     label: 'Otro Incidente',
     color: 'text-slate-400',
@@ -97,12 +161,47 @@ export const ORIGIN_CONFIG: Record<
     badge: 'bg-purple-900/60 text-purple-300 border border-purple-500/40',
     icon: 'Radio',
   },
+  NEWSPAPER: {
+    label: 'Noticia de prensa',
+    badge: 'bg-blue-900/60 text-blue-300 border border-blue-500/40',
+    icon: 'Newspaper',
+  },
+  YOUTUBE: {
+    label: 'Noticia de YouTube',
+    badge: 'bg-blue-900/60 text-blue-300 border border-blue-500/40',
+    icon: 'Bot',
+  },
+  OFFICIAL_PNP: {
+    label: 'Oficial (PNP)',
+    badge: 'bg-emerald-900/60 text-emerald-300 border border-emerald-500/40',
+    icon: 'Landmark',
+  },
+  OFFICIAL_INEI: {
+    label: 'Oficial (INEI)',
+    badge: 'bg-emerald-900/60 text-emerald-300 border border-emerald-500/40',
+    icon: 'Landmark',
+  },
+  SAMPLE: {
+    label: 'Dato de ejemplo',
+    badge: 'bg-slate-800 text-slate-300 border border-slate-600',
+    icon: 'FlaskConical',
+  },
 }
+
+/** Orígenes que pasan por extracción con IA (solo para ellos tiene sentido mostrar "confianza IA"). */
+export const AI_ORIGINS: IncidentOrigin[] = ['NEWS', 'NEWSPAPER', 'YOUTUBE']
+
+/** Confirmaciones necesarias para publicar un reporte ciudadano (igual que en el backend). */
+export const CONFIRMATIONS_TO_PUBLISH = 3
 
 export const STATUS_CONFIG: Record<
   IncidentStatus,
   { label: string; badge: string }
 > = {
+  PUBLISHED: {
+    label: 'Publicado',
+    badge: 'bg-green-900/60 text-green-300 border border-green-500/40',
+  },
   VALIDATED: {
     label: 'Validado',
     badge: 'bg-green-900/60 text-green-300 border border-green-500/40',

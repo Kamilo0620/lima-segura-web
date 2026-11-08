@@ -1,3 +1,6 @@
+import { INCIDENT_TYPE_CONFIG } from '../utils/constants'
+import type { IncidentType } from '../types'
+
 interface CategoryStat {
   category: string
   percentage: number
@@ -10,18 +13,30 @@ interface CategoryDistributionCardProps {
   stats?: CategoryStat[]
 }
 
-const DEFAULT_STATS: CategoryStat[] = [
-  { category: 'Robo a transeúnte', percentage: 38, color: '#ef4444' }, // Red
-  { category: 'Robo de vehículo', percentage: 22, color: '#f97316' }, // Orange
-  { category: 'Hurto', percentage: 16, color: '#eab308' }, // Yellow
-  { category: 'Asalto con arma', percentage: 14, color: '#a855f7' }, // Purple
-  { category: 'Otros', percentage: 10, color: '#64748b' }, // Gray
-]
+/** Muestra las 4 categorías principales y agrupa el resto en "Otros". */
+function groupStats(stats: CategoryStat[]): CategoryStat[] {
+  const top = stats.slice(0, 4).map((s) => ({
+    ...s,
+    category: INCIDENT_TYPE_CONFIG[s.category as IncidentType]?.label ?? s.category,
+  }))
+  const rest = stats.slice(4)
+  if (rest.length === 0) return top
+  return [
+    ...top,
+    {
+      category: 'Otros',
+      percentage: rest.reduce((sum, s) => sum + s.percentage, 0),
+      count: rest.reduce((sum, s) => sum + (s.count ?? 0), 0),
+      color: '#64748b',
+    },
+  ]
+}
 
 export default function CategoryDistributionCard({
-  totalCount = '1,248',
-  stats = DEFAULT_STATS,
+  totalCount = '—',
+  stats: rawStats = [],
 }: CategoryDistributionCardProps) {
+  const stats = groupStats(rawStats)
   // SVG Donut calculation
   let cumulative = 0
   const radius = 38
@@ -33,7 +48,7 @@ export default function CategoryDistributionCard({
       <div className="flex items-center justify-between text-xs mb-3">
         <div className="flex items-center gap-1.5 font-bold text-slate-200">
           <span>Incidentes por categoría</span>
-          <span className="text-[10px] text-slate-400 font-normal">(últimos 7 días)</span>
+          <span className="text-[10px] text-slate-400 font-normal">(publicados)</span>
         </div>
       </div>
 
@@ -42,6 +57,9 @@ export default function CategoryDistributionCard({
         {/* SVG Donut */}
         <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
           <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 100 100">
+            {stats.length === 0 && (
+              <circle cx="50" cy="50" r={radius} fill="transparent" stroke="#1e293b" strokeWidth="15" />
+            )}
             {stats.map((item, idx) => {
               const strokeDasharray = `${(item.percentage / 100) * circumference} ${circumference}`
               const strokeDashoffset = -((cumulative / 100) * circumference)
@@ -75,6 +93,7 @@ export default function CategoryDistributionCard({
 
         {/* Legend List */}
         <div className="flex-1 space-y-1.5 text-[11px]">
+          {stats.length === 0 && <p className="text-slate-500">Sin datos todavía.</p>}
           {stats.map((item, idx) => (
             <div key={idx} className="flex items-center justify-between">
               <div className="flex items-center gap-2 truncate">

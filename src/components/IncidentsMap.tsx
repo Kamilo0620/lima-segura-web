@@ -126,9 +126,10 @@ export default function IncidentsMap({
   selectedTimeFilter = 'Ahora',
   onSelectTimeFilter,
   userCoords,
-  userLabel = 'BREÑA',
+  userLabel = 'TÚ',
 }: IncidentsMapProps) {
-  const defaultCenter: [number, number] = userCoords || [-12.0560, -77.0420]
+  // Centro de Lima si todavía no tenemos la ubicación del usuario
+  const defaultCenter: [number, number] = userCoords || [-12.0464, -77.0428]
   const [theme, setTheme] = useState<MapTheme>('dark')
   const [zoomTrigger, setZoomTrigger] = useState<number | null>(null)
   const [recenterTarget, setRecenterTarget] = useState<[number, number] | null>(null)
@@ -212,7 +213,7 @@ export default function IncidentsMap({
 
         <button
           onClick={handleRecenter}
-          title="Centrar en mi ubicación (Breña)"
+          title="Centrar en mi ubicación"
           className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-[#0d1424]/90 text-blue-400 shadow-xl backdrop-blur-md hover:bg-blue-950/80 hover:text-blue-300 transition"
         >
           <LocateFixed className="h-4 w-4" />
@@ -318,7 +319,7 @@ export default function IncidentsMap({
         />
 
         {/* 4. Dynamic User Location Pulsing Pin (Matches Mockup) */}
-        <Marker position={userCoords || defaultCenter} icon={createUserLocationPin(userLabel)} />
+        {userCoords && <Marker position={userCoords} icon={createUserLocationPin(userLabel)} />}
 
         {/* 5. Glowing Heat Circles along avenues and hotspots */}
         {showHeatCircles &&
