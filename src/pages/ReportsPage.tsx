@@ -17,6 +17,7 @@ import {
   ORIGIN_CONFIG,
   STATUS_CONFIG,
   formatDateTime,
+  formatTimeAgo,
 } from '../utils/constants'
 import { ExternalLink, FileText, PlusCircle, Search } from 'lucide-react'
 
@@ -28,7 +29,7 @@ export default function ReportsPage() {
   const page = Number(searchParams.get('page') ?? 0)
   const type = searchParams.get('type') ?? ''
   const district = searchParams.get('district') ?? ''
-  const status = searchParams.get('status') ?? ''
+  const status = searchParams.get('status') ?? 'PUBLISHED'
   const origin = searchParams.get('origin') ?? ''
   const q = searchParams.get('q') ?? ''
 
@@ -55,7 +56,7 @@ export default function ReportsPage() {
         {
           type: type as IncidentType,
           district,
-          status: status as IncidentStatus,
+          status: (status === 'ALL' ? '' : status) as IncidentStatus,
           origin: origin as IncidentOrigin,
           search: q,
           page,
@@ -96,7 +97,7 @@ export default function ReportsPage() {
                 )}
               </h1>
               <p className="text-xs text-slate-400">
-                Incidentes extraídos de noticias y reportes enviados por vecinos.
+                Incidentes verificados extraídos de medios periodísticos, canales de YouTube y reportes vecinales.
               </p>
             </div>
           </div>
@@ -141,8 +142,8 @@ export default function ReportsPage() {
           </select>
 
           <select value={status} onChange={(e) => updateParam('status', e.target.value)} className={selectClass}>
-            <option value="">Cualquier estado</option>
             <option value="PUBLISHED">Publicado</option>
+            <option value="ALL">Cualquier estado</option>
             <option value="PENDING_REVIEW">Pendiente de confirmación</option>
             <option value="VALIDATED">Validado</option>
             <option value="REJECTED">Descartado</option>
@@ -209,8 +210,8 @@ export default function ReportsPage() {
                       </div>
                       <h3 className="text-sm font-bold text-slate-100">{incident.title}</h3>
                       {(incident.address || incident.summary) && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">
-                          {incident.address || incident.summary}
+                        <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">
+                          {incident.address ? `${incident.address} — ${incident.summary ?? ''}` : incident.summary}
                         </p>
                       )}
                     </div>
@@ -220,6 +221,9 @@ export default function ReportsPage() {
                     <div className="text-right text-[11px] text-slate-400">
                       <div>
                         Gravedad: <span className="font-bold text-white">{sev}/10</span>
+                      </div>
+                      <div className="text-[10px] font-semibold text-cyan-400">
+                        Ocurrió {formatTimeAgo(incident.occurredAt).toLowerCase()}
                       </div>
                       <div className="text-[10px] text-slate-500">{formatDateTime(incident.occurredAt)}</div>
                     </div>

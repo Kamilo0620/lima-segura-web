@@ -14,16 +14,16 @@ import {
   AlertTriangle,
   Calendar,
   CheckCircle2,
-  Cpu,
   ExternalLink,
   Flame,
   MapPin,
   Newspaper,
   ShieldAlert,
+  Users,
   X,
 } from 'lucide-react'
-import Spinner from './Spinner'
 import ConfirmIncidentButton from './ConfirmIncidentButton'
+import Spinner from './Spinner'
 import { getErrorMessage } from '../services/api'
 
 interface IncidentDetailModalProps {
@@ -32,8 +32,9 @@ interface IncidentDetailModalProps {
 }
 
 export default function IncidentDetailModal({ incidentId, onClose }: IncidentDetailModalProps) {
-  const [detail, setDetail] = useState<IncidentDetail | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [detail, setDetail] = useState<IncidentDetail | null>(() =>
+    incidentId ? incidentService.getInstantPreview(incidentId) : null,
+  )
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -42,19 +43,26 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
       return
     }
 
-    const controller = new AbortController()
-    setLoading(true)
+    // 1. Mostrar instantáneamente (0 ms) desde la vista previa o caché en memoria
+    const instant = incidentService.getInstantPreview(incidentId)
+    if (instant) {
+      setDetail(instant)
+    }
     setError(null)
-    setDetail(null)
 
+    // 2. Hidratar silenciosamente fuentes vinculadas y extracto literal desde el backend sin bloquear la vista
+    const controller = new AbortController()
     incidentService
       .getIncidentDetail(incidentId, controller.signal)
-      .then(setDetail)
-      .catch((err) => {
-        if (!controller.signal.aborted) setError(getErrorMessage(err))
+      .then((fullDetail) => {
+        if (!controller.signal.aborted && fullDetail) {
+          setDetail(fullDetail)
+        }
       })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
+      .catch((err) => {
+        if (!controller.signal.aborted && !instant) {
+          setError(getErrorMessage(err))
+        }
       })
 
     return () => controller.abort()
@@ -62,29 +70,30 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
 
   if (!incidentId) return null
 
-  const config = detail ? INCIDENT_TYPE_CONFIG[detail.incidentType] || INCIDENT_TYPE_CONFIG.OTHER : null
+  const config = detail ? INCIDENT_TYPE_CONFIG[detail.incidentType] || INCIDENT_TYPE_CONFIG.OTHER : INCIDENT_TYPE_CONFIG.OTHER
   const origin = detail ? ORIGIN_CONFIG[detail.origin] : null
   const status = detail ? STATUS_CONFIG[detail.status] : null
-  // La "confianza IA" y el modelo LLM solo existen para incidentes extraídos de noticias
-  const isAiExtracted = detail ? AI_ORIGINS.includes(detail.origin) && detail.confidence != null : false
+  // Solo mostramos "confianza IA" si de verdad la extrajo un modelo (el plan B sin IA no tiene llmModel)
+  const isAiExtracted = detail ? AI_ORIGINS.includes(detail.origin) && detail.confidence != null && !!detail.llmModel : false
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-end bg-black/75 p-0 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+    // Panel lateral derecho SIN difuminación (backdrop-blur) ni oscurecimiento sobre el mapa de la izquierda
+    <div className="pointer-events-none fixed inset-y-0 right-0 z-[2000] flex items-center justify-end p-0 sm:p-4">
       <div
-        className="relative flex h-full w-full max-w-xl flex-col border-l border-slate-800 bg-slate-950/95 p-6 text-slate-100 shadow-2xl backdrop-blur-xl sm:h-[94vh] sm:rounded-2xl sm:border"
+        className="pointer-events-auto relative flex h-full w-full max-w-md flex-col border-l border-slate-700/90 bg-[#080d1a] p-5 text-slate-100 shadow-[0_0_50px_rgba(0,0,0,0.85)] sm:h-[92vh] sm:max-w-lg sm:rounded-2xl sm:border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-800/80 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-600/20 text-red-500 border border-red-500/30">
+        <div className="flex items-start justify-between border-b border-slate-800/80 pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-600/20 text-red-500 border border-red-500/30">
               <ShieldAlert className="h-5 w-5" />
             </span>
             <div>
               <div className="text-[11px] font-bold tracking-widest text-red-400 uppercase">
                 Incidente #{incidentId}
               </div>
-              <h2 className="text-lg font-bold text-slate-100">
+              <h2 className="text-base font-bold text-slate-100 leading-snug">
                 {detail?.title || 'Cargando incidente...'}
               </h2>
             </div>
@@ -92,27 +101,27 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition"
+            title="Cerrar panel"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-5 pr-1">
-          {loading && (
-            <div className="flex h-64 flex-col items-center justify-center gap-3">
+        <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+          {!detail && !error && (
+            <div className="flex h-48 items-center justify-center">
               <Spinner />
-              <p className="text-xs text-slate-400">Consultando base de datos e índices espaciales...</p>
             </div>
           )}
 
-          {error && (
+          {error && !detail && (
             <div className="rounded-xl border border-red-800/50 bg-red-950/40 p-4 text-xs text-red-300">
               {error}
             </div>
           )}
 
-          {detail && config && (
+          {detail && (
             <>
               {/* Status and Origin Chips */}
               <div className="flex flex-wrap items-center gap-2">
@@ -166,23 +175,23 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                 </div>
 
                 {isAiExtracted && (
-                <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5">
-                  <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                      Confianza de la IA
-                    </span>
-                    <span className="font-bold text-slate-200">
-                      {Math.round((detail.confidence ?? 0) * 100)}%
-                    </span>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5">
+                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                        Confianza de la IA
+                      </span>
+                      <span className="font-bold text-slate-200">
+                        {Math.round((detail.confidence ?? 0) * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-full"
+                        style={{ width: `${(detail.confidence ?? 0) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                    <div
-                      className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-full"
-                      style={{ width: `${(detail.confidence ?? 0) * 100}%` }}
-                    />
-                  </div>
-                </div>
                 )}
               </div>
 
@@ -228,7 +237,7 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                 )}
               </div>
 
-              {/* Metadata: Date, Model, Victims */}
+              {/* Metadata: True Event Date & Victims (with Users icon, NOT Cpu chip) */}
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
                   <div className="flex items-center gap-1.5 text-slate-400 mb-1">
@@ -238,35 +247,37 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                   <div className="font-medium text-slate-200">
                     {formatDateTime(detail.occurredAt)}
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    {formatTimeAgo(detail.occurredAt)}
+                  <div className="text-[11px] text-emerald-400 font-medium mt-0.5">
+                    Ocurrió {formatTimeAgo(detail.occurredAt).toLowerCase()}
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
                   <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                    <Cpu className="h-3.5 w-3.5 text-purple-400" />
-                    {isAiExtracted && detail.llmModel ? 'Modelo de extracción' : 'Víctimas'}
+                    <Users className="h-3.5 w-3.5 text-rose-400" />
+                    Víctimas / Afectados
                   </div>
-                  {isAiExtracted && detail.llmModel && (
-                    <div className="font-medium text-slate-200">{detail.llmModel}</div>
-                  )}
-                  <div className="text-[11px] text-slate-500">
-                    Víctimas reportadas: {detail.victimsCount ?? 0}
+                  <div className="font-semibold text-slate-200">
+                    {detail.victimsCount != null
+                      ? `${detail.victimsCount} ${detail.victimsCount === 1 ? 'persona afectada' : 'personas afectadas'}`
+                      : 'No informado'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {isAiExtracted ? `Extraído con IA (${detail.llmModel})` : detail.origin === 'CITIZEN' ? 'Reporte ciudadano' : 'Según la fuente'}
                   </div>
                 </div>
               </div>
 
               {/* Sources and Verifications */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase tracking-wider">
-                    <Newspaper className="h-4 w-4 text-cyan-400" />
-                    Fuentes vinculadas ({detail.sources?.length || 0})
+              {detail.sources && detail.sources.length > 0 && (
+                <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      <Newspaper className="h-4 w-4 text-cyan-400" />
+                      Fuentes vinculadas ({detail.sources.length})
+                    </div>
                   </div>
-                </div>
 
-                {detail.sources && detail.sources.length > 0 ? (
                   <div className="space-y-2">
                     {detail.sources.map((src, idx) => (
                       <div
@@ -291,14 +302,8 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    {detail.origin === 'CITIZEN'
-                      ? 'Reporte enviado por un vecino; se valida con confirmaciones de la comunidad.'
-                      : 'Este incidente no tiene fuentes vinculadas.'}
-                  </p>
-                )}
-              </div>
+                </div>
+              )}
             </>
           )}
         </div>

@@ -1,6 +1,6 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Calendar, ExternalLink, MapPin, Newspaper } from 'lucide-react'
+import { Calendar, ExternalLink, MapPin, Newspaper, Users } from 'lucide-react'
 import { CircleMarker, MapContainer } from 'react-leaflet'
 import DarkTiles from '../components/DarkTiles'
 import 'leaflet/dist/leaflet.css'
@@ -24,31 +24,42 @@ export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const incidentId = Number(id)
 
+  // Datos reales del backend con nuestro hook useFetch (cancela la petición al salir de la página)
   const fetcher = useCallback(
     (signal: AbortSignal) => incidentService.getIncidentDetail(incidentId, signal),
     [incidentId],
   )
-  const { data: incident, loading, error, refetch } = useFetch(fetcher)
+  const { data, loading, error, refetch } = useFetch(fetcher)
+
+  // Mientras llega el detalle, mostramos al instante el resumen que ya estaba cargado (si existe)
+  const preview = useMemo(
+    () => (Number.isInteger(incidentId) && incidentId > 0 ? incidentService.getInstantPreview(incidentId) : null),
+    [incidentId],
+  )
+  const incident = data ?? preview
 
   const content = () => {
     if (!Number.isInteger(incidentId) || incidentId <= 0) {
       return <ErrorMessage message="El identificador del incidente no es válido." />
     }
-    if (loading) {
+    if (loading && !incident) {
       return (
         <div className="flex h-64 items-center justify-center">
           <Spinner />
         </div>
       )
     }
-    if (error || !incident) {
-      return <ErrorMessage message={error ?? 'No se encontró el incidente.'} onRetry={refetch} />
+    if (error && !incident) {
+      return <ErrorMessage message={error} onRetry={refetch} />
+    }
+    if (!incident) {
+      return <ErrorMessage message="No se encontró el incidente." onRetry={refetch} />
     }
 
     const type = INCIDENT_TYPE_CONFIG[incident.incidentType] ?? INCIDENT_TYPE_CONFIG.OTHER
     const origin = ORIGIN_CONFIG[incident.origin]
     const status = STATUS_CONFIG[incident.status]
-    const isAi = AI_ORIGINS.includes(incident.origin) && incident.confidence != null
+    const isAi = AI_ORIGINS.includes(incident.origin) && incident.confidence != null && !!incident.llmModel
 
     return (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -113,8 +124,14 @@ export default function IncidentDetailPage() {
         </section>
 
         <aside className="space-y-4">
-          <div className="h-56 overflow-hidden rounded-2xl border border-slate-800">
-            <MapContainer center={[incident.lat, incident.lng]} zoom={15} className="h-full w-full" scrollWheelZoom={false}>
+          <div className="h-64 overflow-hidden rounded-2xl border border-slate-800 shadow-lg">
+            <MapContainer
+              center={[incident.lat, incident.lng]}
+              zoom={16}
+              maxZoom={22}
+              className="h-full w-full"
+              scrollWheelZoom={true}
+            >
               <DarkTiles />
               <CircleMarker
                 center={[incident.lat, incident.lng]}
@@ -136,7 +153,18 @@ export default function IncidentDetailPage() {
               <Calendar className="mt-0.5 h-4 w-4 text-blue-400" />
               <div>
                 <div className="font-semibold text-slate-200">{formatDateTime(incident.occurredAt)}</div>
-                <div className="text-slate-400">{formatTimeAgo(incident.occurredAt)}</div>
+                <div className="text-emerald-400">Ocurrió {formatTimeAgo(incident.occurredAt).toLowerCase()}</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Users className="mt-0.5 h-4 w-4 text-rose-400" />
+              <div>
+                <div className="font-semibold text-slate-200">
+                  {incident.victimsCount != null
+                      ? `${incident.victimsCount} ${incident.victimsCount === 1 ? 'víctima reportada' : 'víctimas reportadas'}`
+                      : 'No informado'}
+                </div>
+                <div className="text-slate-400">Personas afectadas en el hecho</div>
               </div>
             </div>
             <div className="text-slate-400">

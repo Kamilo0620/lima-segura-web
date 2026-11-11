@@ -1,4 +1,4 @@
-import type { IncidentOrigin, IncidentStatus, IncidentType } from '../types'
+import type { HeatmapPoint, IncidentOrigin, IncidentStatus, IncidentSummary, IncidentType } from '../types'
 
 export const INCIDENT_TYPE_CONFIG: Record<
   IncidentType,
@@ -220,57 +220,192 @@ export const STATUS_CONFIG: Record<
   },
 }
 
-export const LIMA_DISTRICTS = [
-  'Lima',
-  'Ancón',
-  'Ate',
-  'Barranco',
-  'Breña',
-  'Carabayllo',
-  'Chaclacayo',
-  'Chorrillos',
-  'Cieneguilla',
-  'Comas',
-  'El Agustino',
-  'Independencia',
-  'Jesús María',
-  'La Molina',
-  'La Victoria',
-  'Lince',
-  'Los Olivos',
-  'Lurigancho',
-  'Lurín',
-  'Magdalena del Mar',
-  'Miraflores',
-  'Pachacámac',
-  'Pucusana',
-  'Puente Piedra',
-  'Punta Hermosa',
-  'Punta Negra',
-  'Rímac',
-  'San Bartolo',
-  'San Borja',
-  'San Isidro',
-  'San Juan de Lurigancho',
-  'San Juan de Miraflores',
-  'San Luis',
-  'San Martín de Porres',
-  'San Miguel',
-  'Santa Anita',
-  'Santa María del Mar',
-  'Santa Rosa',
-  'Santiago de Surco',
-  'Surquillo',
-  'Villa El Salvador',
-  'Villa María del Triunfo',
-  'Callao',
-  'Bellavista',
-  'Carmen de la Legua Reynoso',
-  'La Perla',
-  'La Punta',
-  'Mi Perú',
-  'Ventanilla',
+export interface DistrictMeta {
+  name: string
+  province: 'Lima' | 'Callao'
+  lat: number
+  lng: number
+}
+
+export const DISTRICT_METADATA: DistrictMeta[] = [
+  { name: 'Lima', province: 'Lima', lat: -12.0464, lng: -77.0428 },
+  { name: 'Ancón', province: 'Lima', lat: -11.7262, lng: -77.1486 },
+  { name: 'Ate', province: 'Lima', lat: -12.0249, lng: -76.9186 },
+  { name: 'Barranco', province: 'Lima', lat: -12.1429, lng: -77.0219 },
+  { name: 'Breña', province: 'Lima', lat: -12.0596, lng: -77.0538 },
+  { name: 'Carabayllo', province: 'Lima', lat: -11.8548, lng: -77.0369 },
+  { name: 'Chaclacayo', province: 'Lima', lat: -11.9822, lng: -76.7614 },
+  { name: 'Chorrillos', province: 'Lima', lat: -12.1721, lng: -77.0149 },
+  { name: 'Cieneguilla', province: 'Lima', lat: -12.0911, lng: -76.7696 },
+  { name: 'Comas', province: 'Lima', lat: -11.9351, lng: -77.0486 },
+  { name: 'El Agustino', province: 'Lima', lat: -12.0449, lng: -76.9945 },
+  { name: 'Independencia', province: 'Lima', lat: -11.9876, lng: -77.0511 },
+  { name: 'Jesús María', province: 'Lima', lat: -12.0721, lng: -77.0472 },
+  { name: 'La Molina', province: 'Lima', lat: -12.0847, lng: -76.9316 },
+  { name: 'La Victoria', province: 'Lima', lat: -12.0677, lng: -77.0179 },
+  { name: 'Lince', province: 'Lima', lat: -12.0830, lng: -77.0340 },
+  { name: 'Los Olivos', province: 'Lima', lat: -11.9544, lng: -77.0649 },
+  { name: 'Lurigancho', province: 'Lima', lat: -11.9833, lng: -76.8833 },
+  { name: 'Lurín', province: 'Lima', lat: -12.2699, lng: -76.8739 },
+  { name: 'Magdalena del Mar', province: 'Lima', lat: -12.0919, lng: -77.0703 },
+  { name: 'Miraflores', province: 'Lima', lat: -12.1199, lng: -77.0303 },
+  { name: 'Pachacámac', province: 'Lima', lat: -12.2307, lng: -76.8622 },
+  { name: 'Pucusana', province: 'Lima', lat: -12.4794, lng: -76.7961 },
+  { name: 'Pueblo Libre', province: 'Lima', lat: -12.0755, lng: -77.0619 },
+  { name: 'Puente Piedra', province: 'Lima', lat: -11.8618, lng: -77.0754 },
+  { name: 'Punta Hermosa', province: 'Lima', lat: -12.3398, lng: -76.8280 },
+  { name: 'Punta Negra', province: 'Lima', lat: -12.3660, lng: -76.7959 },
+  { name: 'Rímac', province: 'Lima', lat: -12.0291, lng: -77.0311 },
+  { name: 'San Bartolo', province: 'Lima', lat: -12.3832, lng: -76.7819 },
+  { name: 'San Borja', province: 'Lima', lat: -12.1063, lng: -77.0031 },
+  { name: 'San Isidro', province: 'Lima', lat: -12.0989, lng: -77.0368 },
+  { name: 'San Juan de Lurigancho', province: 'Lima', lat: -11.9693, lng: -76.9953 },
+  { name: 'San Juan de Miraflores', province: 'Lima', lat: -12.1594, lng: -76.9697 },
+  { name: 'San Luis', province: 'Lima', lat: -12.0744, lng: -76.9994 },
+  { name: 'San Martín de Porres', province: 'Lima', lat: -11.9892, lng: -77.0691 },
+  { name: 'San Miguel', province: 'Lima', lat: -12.0768, lng: -77.0858 },
+  { name: 'Santa Anita', province: 'Lima', lat: -12.0431, lng: -76.9694 },
+  { name: 'Santa María del Mar', province: 'Lima', lat: -12.4018, lng: -76.7879 },
+  { name: 'Santa Rosa', province: 'Lima', lat: -11.7951, lng: -77.1650 },
+  { name: 'Santiago de Surco', province: 'Lima', lat: -12.1363, lng: -76.9912 },
+  { name: 'Surquillo', province: 'Lima', lat: -12.1108, lng: -77.0127 },
+  { name: 'Villa El Salvador', province: 'Lima', lat: -12.2061, lng: -76.9354 },
+  { name: 'Villa María del Triunfo', province: 'Lima', lat: -12.1651, lng: -76.9474 },
+  { name: 'Callao', province: 'Callao', lat: -12.0566, lng: -77.1185 },
+  { name: 'Bellavista', province: 'Callao', lat: -12.0594, lng: -77.0998 },
+  { name: 'Carmen de la Legua Reynoso', province: 'Callao', lat: -12.0462, lng: -77.0959 },
+  { name: 'La Perla', province: 'Callao', lat: -12.0743, lng: -77.1105 },
+  { name: 'La Punta', province: 'Callao', lat: -12.0697, lng: -77.1568 },
+  { name: 'Mi Perú', province: 'Callao', lat: -11.8571, lng: -77.1128 },
+  { name: 'Ventanilla', province: 'Callao', lat: -11.8762, lng: -77.1259 },
 ]
+
+export const LIMA_DISTRICTS = DISTRICT_METADATA.map((d) => d.name)
+
+export function normalizeText(str?: string): string {
+  if (!str) return ''
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+export function getDistrictMeta(districtName?: string): DistrictMeta | undefined {
+  if (!districtName) return undefined
+  const norm = normalizeText(districtName)
+  return DISTRICT_METADATA.find((d) => normalizeText(d.name) === norm)
+}
+
+/**
+ * Resuelve el distrito y provincia exactos de un punto del mapa de calor (usando su campo districtName
+ * si viene del backend o por cercanía espacial inmediata al centroide de los 50 distritos de Lima y Callao).
+ */
+export function resolvePointDistrictAndProvince(point: HeatmapPoint): {
+  district: string
+  province: 'Lima' | 'Callao'
+} {
+  if (point.districtName) {
+    const meta = getDistrictMeta(point.districtName)
+    if (meta) return { district: meta.name, province: meta.province }
+  }
+  let best = DISTRICT_METADATA[0]
+  let bestDist = Infinity
+  for (const d of DISTRICT_METADATA) {
+    const dx = point.lat - d.lat
+    const dy = point.lng - d.lng
+    const distSq = dx * dx + dy * dy
+    if (distSq < bestDist) {
+      bestDist = distSq
+      best = d
+    }
+  }
+  return { district: best.name, province: best.province }
+}
+
+/**
+ * Evalúa si un punto del mapa o incidente cumple el filtro de hora / franja temporal seleccionado.
+ */
+export function matchesTimeFilter(
+  timeFilter: string,
+  occurredAt?: string,
+  timeFactor?: number,
+  incidentId?: number,
+): boolean {
+  if (!timeFilter || timeFilter === 'Ahora' || timeFilter === '7d') {
+    return true
+  }
+
+  let hoursAgo = 12
+  let eventHourOfDay = 20
+
+  if (occurredAt) {
+    const d = new Date(occurredAt)
+    if (!Number.isNaN(d.getTime())) {
+      hoursAgo = Math.max(0, (Date.now() - d.getTime()) / (1000 * 60 * 60))
+      eventHourOfDay = d.getHours()
+    }
+  } else if (timeFactor != null) {
+    if (timeFactor >= 0.95) hoursAgo = 2.5
+    else if (timeFactor >= 0.65) hoursAgo = 14
+    else if (timeFactor >= 0.35) hoursAgo = 36
+    else hoursAgo = 72
+    eventHourOfDay = ((incidentId ?? 1) * 7) % 24
+  }
+
+  switch (timeFilter) {
+    case '1h':
+      return hoursAgo <= 1.5 || (timeFactor != null && timeFactor >= 0.95 && ((incidentId ?? 0) % 3 === 0))
+    case '6h':
+      return hoursAgo <= 6.5 || (timeFactor != null && timeFactor >= 0.9)
+    case '24h':
+      return hoursAgo <= 24.5 || (timeFactor != null && timeFactor >= 0.65)
+    case '48h':
+      return hoursAgo <= 48.5 || (timeFactor != null && timeFactor >= 0.35)
+    case 'MADRUGADA':
+      return eventHourOfDay >= 0 && eventHourOfDay < 6
+    case 'MANANA':
+      return eventHourOfDay >= 6 && eventHourOfDay < 12
+    case 'TARDE':
+      return eventHourOfDay >= 12 && eventHourOfDay < 18
+    case 'NOCHE':
+      return eventHourOfDay >= 18 && eventHourOfDay <= 23
+    default:
+      return true
+  }
+}
+
+export function matchesIncidentSummaryFilters(
+  inc: IncidentSummary,
+  regionFilter: string,
+  districtFilter: string,
+  timeFilter: string,
+  typeFilter = '',
+  searchQuery = '',
+): boolean {
+  const incDist = inc.districtName || inc.district?.name || ''
+  const meta = getDistrictMeta(incDist)
+  const province = inc.province || meta?.province || 'Lima'
+
+  if (regionFilter && normalizeText(province) !== normalizeText(regionFilter)) {
+    return false
+  }
+  if (districtFilter && normalizeText(incDist) !== normalizeText(districtFilter)) {
+    return false
+  }
+  if (typeFilter && inc.incidentType !== typeFilter) {
+    return false
+  }
+  if (!matchesTimeFilter(timeFilter, inc.occurredAt, undefined, inc.id)) {
+    return false
+  }
+  if (searchQuery.trim()) {
+    const q = normalizeText(searchQuery)
+    const haystack = normalizeText(`${inc.title} ${inc.address ?? ''} ${incDist} ${inc.summary ?? ''}`)
+    if (!haystack.includes(q)) return false
+  }
+  return true
+}
 
 export function formatDateTime(isoString?: string): string {
   if (!isoString) return 'Desconocido'
@@ -291,17 +426,21 @@ export function formatDateTime(isoString?: string): string {
 export function formatTimeAgo(isoString?: string): string {
   if (!isoString) return ''
   try {
-    const diffMs = Date.now() - new Date(isoString).getTime()
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    if (diffHours < 1) {
-      const diffMins = Math.max(1, Math.floor(diffMs / (1000 * 60)))
-      return `Hace ${diffMins} min`
+    const eventTime = new Date(isoString).getTime()
+    if (Number.isNaN(eventTime)) return ''
+    const diffMs = Math.max(60_000, Date.now() - eventTime)
+    const totalMins = Math.floor(diffMs / 60_000)
+    if (totalMins < 60) {
+      return `Hace ${totalMins} min`
     }
+    const diffHours = Math.floor(totalMins / 60)
+    const remMins = totalMins % 60
     if (diffHours < 24) {
-      return `Hace ${diffHours} h`
+      return remMins > 0 ? `Hace ${diffHours} h ${remMins} min` : `Hace ${diffHours} h`
     }
     const diffDays = Math.floor(diffHours / 24)
-    return `Hace ${diffDays} d`
+    const remHours = diffHours % 24
+    return remHours > 0 ? `Hace ${diffDays} d ${remHours} h` : `Hace ${diffDays} d`
   } catch {
     return ''
   }
