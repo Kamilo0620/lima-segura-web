@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react'
 import ConfirmIncidentButton from './ConfirmIncidentButton'
+import Spinner from './Spinner'
 import { getErrorMessage } from '../services/api'
 
 interface IncidentDetailModalProps {
@@ -72,7 +73,8 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
   const config = detail ? INCIDENT_TYPE_CONFIG[detail.incidentType] || INCIDENT_TYPE_CONFIG.OTHER : INCIDENT_TYPE_CONFIG.OTHER
   const origin = detail ? ORIGIN_CONFIG[detail.origin] : null
   const status = detail ? STATUS_CONFIG[detail.status] : null
-  const isAiExtracted = detail ? AI_ORIGINS.includes(detail.origin) && detail.confidence != null : false
+  // Solo mostramos "confianza IA" si de verdad la extrajo un modelo (el plan B sin IA no tiene llmModel)
+  const isAiExtracted = detail ? AI_ORIGINS.includes(detail.origin) && detail.confidence != null && !!detail.llmModel : false
 
   return (
     // Panel lateral derecho SIN difuminación (backdrop-blur) ni oscurecimiento sobre el mapa de la izquierda
@@ -92,7 +94,7 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                 Incidente #{incidentId}
               </div>
               <h2 className="text-base font-bold text-slate-100 leading-snug">
-                {detail?.title || `Reporte policial #${incidentId}`}
+                {detail?.title || 'Cargando incidente...'}
               </h2>
             </div>
           </div>
@@ -107,6 +109,12 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+          {!detail && !error && (
+            <div className="flex h-48 items-center justify-center">
+              <Spinner />
+            </div>
+          )}
+
           {error && !detail && (
             <div className="rounded-xl border border-red-800/50 bg-red-950/40 p-4 text-xs text-red-300">
               {error}
@@ -135,6 +143,12 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                   </span>
                 )}
               </div>
+
+              {detail.origin === 'SAMPLE' && (
+                <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs text-slate-400">
+                  Este es un dato de ejemplo cargado para la demostración; no corresponde a un hecho real verificado.
+                </div>
+              )}
 
               {detail.origin === 'CITIZEN' && (
                 <div className="rounded-xl border border-purple-500/30 bg-purple-950/20 p-3">
@@ -188,11 +202,11 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                   Ubicación Georreferenciada
                 </div>
                 <div className="text-sm font-semibold text-slate-100">
-                  {detail.address || detail.districtName || 'Lima Metropolitana'}
+                  {detail.address || 'Sin dirección exacta'}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 pt-1">
                   <span className="rounded bg-slate-800 px-2 py-0.5 text-slate-300">
-                    Distrito: {detail.districtName || 'Lima'}
+                    Distrito: {detail.districtName || 'No identificado'}
                   </span>
                   {detail.geoPrecision && (
                     <span className="rounded bg-slate-800 px-2 py-0.5 text-slate-300">
@@ -244,13 +258,12 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                     Víctimas / Afectados
                   </div>
                   <div className="font-semibold text-slate-200">
-                    {detail.victimsCount ?? 1}{' '}
-                    {(detail.victimsCount ?? 1) === 1 ? 'persona afectada' : 'personas afectadas'}
+                    {detail.victimsCount != null
+                      ? `${detail.victimsCount} ${detail.victimsCount === 1 ? 'persona afectada' : 'personas afectadas'}`
+                      : 'No informado'}
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    {isAiExtracted && detail.llmModel
-                      ? `Verificado (${detail.llmModel})`
-                      : 'Reporte policial / ciudadano'}
+                    {isAiExtracted ? `Extraído con IA (${detail.llmModel})` : detail.origin === 'CITIZEN' ? 'Reporte ciudadano' : 'Según la fuente'}
                   </div>
                 </div>
               </div>

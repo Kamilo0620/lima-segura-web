@@ -163,14 +163,14 @@ export default function MapRiskPage() {
                     <div className="flex items-center justify-between text-[11px] font-bold">
                       <span className="text-red-400">{INCIDENT_TYPE_CONFIG[inc.incidentType]?.label ?? inc.incidentType}</span>
                       <span className="text-[10px] text-slate-400 font-normal">
-                        {inc.districtName || inc.district?.name || 'Lima'}
+                        {inc.districtName || inc.district?.name || 'Distrito no identificado'}
                       </span>
                     </div>
                     <div className="text-slate-200 font-semibold mt-1 line-clamp-2 leading-tight">
                       {inc.title}
                     </div>
                     <div className="text-[10px] text-slate-400 mt-1 truncate">
-                      {inc.address || inc.exactLocation || inc.summary || inc.description || 'Lima Metropolitana'}
+                      {inc.address || inc.exactLocation || inc.summary || inc.description || 'Sin dirección exacta'}
                     </div>
                   </div>
                 ))}

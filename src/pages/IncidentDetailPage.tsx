@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Calendar, ExternalLink, MapPin, Newspaper, Users } from 'lucide-react'
 import { CircleMarker, MapContainer } from 'react-leaflet'
@@ -9,8 +9,8 @@ import Breadcrumbs from '../components/Breadcrumbs'
 import Spinner from '../components/Spinner'
 import ErrorMessage from '../components/ErrorMessage'
 import ConfirmIncidentButton from '../components/ConfirmIncidentButton'
+import { useFetch } from '../hooks/useFetch'
 import { incidentService } from '../services/incidentService'
-import type { IncidentDetail } from '../types'
 import {
   AI_ORIGINS,
   INCIDENT_TYPE_CONFIG,
@@ -24,45 +24,19 @@ export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const incidentId = Number(id)
 
-  const [incident, setIncident] = useState<IncidentDetail | null>(() =>
-    Number.isInteger(incidentId) && incidentId > 0 ? incidentService.getInstantPreview(incidentId) : null,
-  )
-  const [loading, setLoading] = useState<boolean>(!incident)
-  const [error, setError] = useState<string | null>(null)
-
-  const loadIncident = useCallback(
-    (signal?: AbortSignal) => {
-      if (!Number.isInteger(incidentId) || incidentId <= 0) return
-      const instant = incidentService.getInstantPreview(incidentId)
-      if (instant) {
-        setIncident(instant)
-        setLoading(false)
-      } else {
-        setLoading(true)
-      }
-      setError(null)
-      incidentService
-        .getIncidentDetail(incidentId, signal)
-        .then((fullData) => {
-          setIncident(fullData)
-          setLoading(false)
-        })
-        .catch((err) => {
-          if (err?.name === 'CanceledError' || err?.name === 'AbortError') return
-          if (!instant) {
-            setError(err?.message || 'No se encontró el incidente.')
-          }
-          setLoading(false)
-        })
-    },
+  // Datos reales del backend con nuestro hook useFetch (cancela la petición al salir de la página)
+  const fetcher = useCallback(
+    (signal: AbortSignal) => incidentService.getIncidentDetail(incidentId, signal),
     [incidentId],
   )
+  const { data, loading, error, refetch } = useFetch(fetcher)
 
-  useEffect(() => {
-    const controller = new AbortController()
-    loadIncident(controller.signal)
-    return () => controller.abort()
-  }, [loadIncident])
+  // Mientras llega el detalle, mostramos al instante el resumen que ya estaba cargado (si existe)
+  const preview = useMemo(
+    () => (Number.isInteger(incidentId) && incidentId > 0 ? incidentService.getInstantPreview(incidentId) : null),
+    [incidentId],
+  )
+  const incident = data ?? preview
 
   const content = () => {
     if (!Number.isInteger(incidentId) || incidentId <= 0) {
@@ -76,16 +50,16 @@ export default function IncidentDetailPage() {
       )
     }
     if (error && !incident) {
-      return <ErrorMessage message={error} onRetry={() => loadIncident()} />
+      return <ErrorMessage message={error} onRetry={refetch} />
     }
     if (!incident) {
-      return <ErrorMessage message="No se encontró el incidente." onRetry={() => loadIncident()} />
+      return <ErrorMessage message="No se encontró el incidente." onRetry={refetch} />
     }
 
     const type = INCIDENT_TYPE_CONFIG[incident.incidentType] ?? INCIDENT_TYPE_CONFIG.OTHER
     const origin = ORIGIN_CONFIG[incident.origin]
     const status = STATUS_CONFIG[incident.status]
-    const isAi = AI_ORIGINS.includes(incident.origin) && incident.confidence != null
+    const isAi = AI_ORIGINS.includes(incident.origin) && incident.confidence != null && !!incident.llmModel
 
     return (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -186,8 +160,9 @@ export default function IncidentDetailPage() {
               <Users className="mt-0.5 h-4 w-4 text-rose-400" />
               <div>
                 <div className="font-semibold text-slate-200">
-                  {incident.victimsCount ?? 1}{' '}
-                  {(incident.victimsCount ?? 1) === 1 ? 'víctima reportada' : 'víctimas reportadas'}
+                  {incident.victimsCount != null
+                      ? `${incident.victimsCount} ${incident.victimsCount === 1 ? 'víctima reportada' : 'víctimas reportadas'}`
+                      : 'No informado'}
                 </div>
                 <div className="text-slate-400">Personas afectadas en el hecho</div>
               </div>

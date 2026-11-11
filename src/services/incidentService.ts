@@ -8,69 +8,23 @@ import type {
   IncidentDetail,
   IncidentFilters,
   IncidentSummary,
-  IncidentType,
   PageResponse,
 } from '../types'
 
 // Caché en memoria de acceso instantáneo (0 ms) para evitar esperas al abrir el detalle de un incidente
 const detailCache = new Map<number, IncidentDetail>()
 const summaryCache = new Map<number, IncidentSummary>()
-const heatmapCache = new Map<number, HeatmapPoint>()
 
+/**
+ * Vista previa inmediata construida SOLO con los datos reales del resumen ya cargado.
+ * No rellenamos nada: confianza, modelo de IA, víctimas y fuentes llegan con el detalle completo.
+ */
 function summaryToInstantDetail(s: IncidentSummary): IncidentDetail {
   return {
-    id: s.id,
-    incidentType: s.incidentType,
-    title: s.title,
-    summary: s.summary || 'Hecho delictivo reportado y georreferenciado en Lima Metropolitana / Callao.',
-    occurredAt: s.occurredAt,
-    occurredAtPrecision: s.occurredAtPrecision,
-    address: s.address,
-    districtName: s.districtName,
-    province: s.province || 'Lima',
-    department: s.department || 'Lima',
-    lat: s.lat,
-    lng: s.lng,
-    geoPrecision: s.geoPrecision || 'ADDRESS',
-    confidence: s.confidence ?? 0.9,
-    incidentCount: s.incidentCount ?? 1,
-    status: s.status ?? 'PUBLISHED',
-    origin: s.origin ?? 'NEWSPAPER',
-    llmModel: 'gemini-3.5-flash',
-    victimsCount: s.victimsCount ?? 1,
-    evidenceExcerpt: s.summary,
-    createdAt: s.createdAt || s.occurredAt,
-    reporterId: s.reporterId,
-    confirmationsCount: s.confirmationsCount ?? 0,
+    ...s,
+    llmModel: undefined,
+    evidenceExcerpt: undefined,
     confirmedByMe: false,
-    sources: [],
-  }
-}
-
-function heatmapPointToInstantDetail(p: HeatmapPoint): IncidentDetail {
-  const id = p.incidentId ?? 0
-  return {
-    id,
-    incidentType: (p.incidentType as IncidentType) || 'OTHER',
-    title: p.title || `Incidente reportado #${id}`,
-    summary: p.title || 'Incidente georreferenciado en el radar delictivo de Lima Segura.',
-    occurredAt: new Date().toISOString(),
-    occurredAtPrecision: 'EXACT',
-    address: null,
-    districtName: 'Lima Metropolitana',
-    province: 'Lima',
-    department: 'Lima',
-    lat: p.lat,
-    lng: p.lng,
-    geoPrecision: 'ADDRESS',
-    confidence: p.sourceWeight ?? 0.88,
-    incidentCount: 1,
-    status: 'PUBLISHED',
-    origin: 'NEWSPAPER',
-    llmModel: 'gemini-3.5-flash',
-    victimsCount: 1,
-    evidenceExcerpt: null,
-    createdAt: new Date().toISOString(),
     sources: [],
   }
 }
@@ -114,9 +68,7 @@ export const incidentService = {
     const cachedSummary = summaryCache.get(id)
     if (cachedSummary) return summaryToInstantDetail(cachedSummary)
 
-    const cachedPoint = heatmapCache.get(id)
-    if (cachedPoint) return heatmapPointToInstantDetail(cachedPoint)
-
+    // Un punto del mapa de calor no trae fecha, origen ni estado: mejor esperar el detalle real
     return null
   },
 
@@ -131,13 +83,7 @@ export const incidentService = {
     if (filters?.minConfidence !== undefined) params.minConfidence = filters.minConfidence
 
     const response = await api.get<HeatmapPoint[]>('/incidents/heatmap', { params, signal })
-    const points = Array.isArray(response.data) ? response.data : []
-    for (const pt of points) {
-      if (pt.incidentId != null) {
-        heatmapCache.set(pt.incidentId, pt)
-      }
-    }
-    return points
+    return Array.isArray(response.data) ? response.data : []
   },
 
   async getIncidents(filters: IncidentFilters = {}, signal?: AbortSignal): Promise<PageResponse<IncidentSummary>> {
