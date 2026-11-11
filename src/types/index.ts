@@ -92,6 +92,9 @@ export interface HeatmapPoint {
   incidentId: number
   incidentType: IncidentType
   title: string
+  districtName?: string
+  province?: string
+  occurredAt?: string
 }
 
 export interface IncidentSummary {
@@ -188,6 +191,8 @@ export type SourceItemStatus =
   | 'CONTENT_READY'
   | 'EXTRACTING'
   | 'PROCESSED'
+  | 'EXTRACTED'
+  | 'IRRELEVANT'
   | 'FAILED'
   | 'DISCARDED'
 
@@ -214,7 +219,7 @@ export interface IngestionRun {
   itemsFound: number
   itemsNew: number
   errors: number
-  status: 'RUNNING' | 'SUCCESS' | 'FAILED'
+  status: 'RUNNING' | 'SUCCESS' | 'COMPLETED' | 'FAILED'
 }
 
 export interface SourceItem {

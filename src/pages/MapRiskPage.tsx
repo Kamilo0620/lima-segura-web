@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Sidebar from '../components/Sidebar'
 import IncidentsMap from '../components/IncidentsMap'
 import IncidentDetailModal from '../components/IncidentDetailModal'
@@ -6,12 +6,13 @@ import { incidentService } from '../services/incidentService'
 import { useUserLocation } from '../hooks/useUserLocation'
 import type { HeatmapPoint, IncidentSummary } from '../types'
 import { RefreshCw, ShieldAlert, Sparkles } from 'lucide-react'
-import { INCIDENT_TYPE_CONFIG } from '../utils/constants'
+import { INCIDENT_TYPE_CONFIG, matchesIncidentSummaryFilters } from '../utils/constants'
 
 export default function MapRiskPage() {
   const [points, setPoints] = useState<HeatmapPoint[]>([])
   const [recentIncidents, setRecentIncidents] = useState<IncidentSummary[]>([])
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null)
+  const [selectedRegion, setSelectedRegion] = useState('')
   const [selectedDistrict, setSelectedDistrict] = useState('')
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('Ahora')
   const [loading, setLoading] = useState(false)
@@ -26,8 +27,8 @@ export default function MapRiskPage() {
         setPoints(heatmap)
       }
       const incidentsData = await incidentService.getIncidents({
-        district: selectedDistrict || undefined,
-        size: 30,
+        status: 'PUBLISHED',
+        size: 160,
       })
       setRecentIncidents(incidentsData.content || [])
     } catch (err) {
@@ -35,11 +36,19 @@ export default function MapRiskPage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedDistrict])
+  }, [])
 
   useEffect(() => {
     loadData()
+    const timer = setInterval(loadData, 20000)
+    return () => clearInterval(timer)
   }, [loadData])
+
+  const filteredRecentIncidents = useMemo(() => {
+    return recentIncidents.filter((inc) =>
+      matchesIncidentSummaryFilters(inc, selectedRegion, selectedDistrict, selectedTimeFilter),
+    )
+  }, [recentIncidents, selectedRegion, selectedDistrict, selectedTimeFilter])
 
   return (
     <div className="flex min-h-[calc(100vh-64px)] bg-[#050811] text-slate-100">
@@ -95,6 +104,8 @@ export default function MapRiskPage() {
               points={points}
               selectedPointId={selectedIncidentId}
               onSelectIncident={(id) => setSelectedIncidentId(id)}
+              selectedRegion={selectedRegion}
+              onSelectRegion={(reg) => setSelectedRegion(reg)}
               selectedDistrict={selectedDistrict}
               onSelectDistrict={(dist) => setSelectedDistrict(dist)}
               selectedTimeFilter={selectedTimeFilter}
@@ -139,11 +150,11 @@ export default function MapRiskPage() {
             <div className="flex-1 rounded-2xl border border-slate-800 bg-[#0d1424]/90 p-3 flex flex-col overflow-hidden">
               <div className="text-xs font-bold text-slate-200 mb-2 flex items-center justify-between">
                 <span>Incidentes Notificados</span>
-                <span className="text-[10px] text-slate-400">{recentIncidents.length} recientes</span>
+                <span className="text-[10px] text-slate-400">{filteredRecentIncidents.length} recientes</span>
               </div>
 
               <div className="flex-1 space-y-2 overflow-y-auto pr-1">
-                {recentIncidents.map((inc) => (
+                {filteredRecentIncidents.map((inc) => (
                   <div
                     key={inc.id}
                     onClick={() => setSelectedIncidentId(inc.id)}

@@ -16,16 +16,34 @@ export const adminService = {
   async getIngestionRuns(sourceId?: number, page = 0, size = 20): Promise<PageResponse<IngestionRun>> {
     const params: Record<string, any> = { page, size }
     if (sourceId) params.sourceId = sourceId
-    const res = await api.get<PageResponse<IngestionRun>>('/admin/ingestion-runs', { params })
-    return res.data
+    const res = await api.get<any>('/admin/ingestion-runs', { params })
+    const rawContent = Array.isArray(res.data?.content) ? res.data.content : []
+    const content: IngestionRun[] = rawContent.map((r: any) => ({
+      ...r,
+      sourceId: r.sourceId ?? r.newsSourceId,
+      sourceName: r.sourceName ?? r.newsSourceName ?? `Fuente #${r.newsSourceId ?? r.id}`,
+    }))
+    return {
+      ...res.data,
+      content,
+    }
   },
 
   // Source items
   async getSourceItems(status?: SourceItemStatus, page = 0, size = 20): Promise<PageResponse<SourceItem>> {
-    const params: Record<string, any> = { page, size }
+    const params: Record<string, any> = { page, size, sort: 'id,desc' }
     if (status) params.status = status
-    const res = await api.get<PageResponse<SourceItem>>('/admin/source-items', { params })
-    return res.data
+    const res = await api.get<any>('/admin/source-items', { params })
+    const rawContent = Array.isArray(res.data?.content) ? res.data.content : []
+    const content: SourceItem[] = rawContent.map((it: any) => ({
+      ...it,
+      sourceId: it.sourceId ?? it.newsSourceId,
+      sourceName: it.sourceName ?? it.newsSourceName ?? 'Medio Periodístico',
+    }))
+    return {
+      ...res.data,
+      content,
+    }
   },
 
   async reprocessSourceItem(id: number): Promise<void> {

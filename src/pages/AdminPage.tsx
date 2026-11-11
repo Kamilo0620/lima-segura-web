@@ -47,8 +47,8 @@ export default function AdminPage() {
   const [importing, setImporting] = useState<boolean>(false)
 
   // Load data depending on active tab
-  const loadData = async () => {
-    setLoading(true)
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       if (activeTab === 'runs') {
         const res = await adminService.getIngestionRuns(undefined, 0, 30)
@@ -57,21 +57,25 @@ export default function AdminPage() {
         const data = await adminService.getSources()
         setSources(data || [])
       } else if (activeTab === 'items') {
-        const res = await adminService.getSourceItems(undefined, 0, 30)
+        const res = await adminService.getSourceItems(undefined, 0, 40)
         setItems(res.content || [])
       } else if (activeTab === 'moderation') {
         const res = await adminService.getIncidentsForReview('PENDING_REVIEW', 0, 30)
         setPendingIncidents(res.content || [])
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Error cargando datos administrativos')
+      if (!silent) toast.error(err?.message || 'Error cargando datos administrativos')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadData()
+    loadData(false)
+    const interval = setInterval(() => {
+      loadData(true)
+    }, 8000)
+    return () => clearInterval(interval)
   }, [activeTab])
 
   // Trigger immediate manual ingestion
@@ -79,7 +83,8 @@ export default function AdminPage() {
     try {
       await adminService.triggerSourceIngestion(sourceId)
       toast.success(`Sondeo forzado iniciado para: ${name}`)
-      setTimeout(loadData, 1500)
+      setTimeout(() => loadData(true), 1500)
+      setTimeout(() => loadData(true), 4500)
     } catch (err: any) {
       toast.error(`Error al disparar ingesta: ${err?.message || 'Fallo de conexión'}`)
     }
@@ -88,10 +93,17 @@ export default function AdminPage() {
   // Trigger all sources ingestion
   const handleTriggerAllSources = async () => {
     try {
-      toast.loading('Disparando sondeo a todas las fuentes...', { id: 'ingest-all' })
+      toast.loading('Disparando sondeo y extracción IA en todas las fuentes...', { id: 'ingest-all' })
       const res = await adminService.triggerAllIngestion()
-      toast.success(res?.message || 'Ciclo de ingesta disparado exitosamente', { id: 'ingest-all' })
-      setTimeout(loadData, 2000)
+      toast.success(
+        res?.sourcesPolled
+          ? `Ciclo completado: ${res.sourcesPolled} fuentes sondeadas (+${res.newItemsRelevant ?? 0} nuevos incidentes procesados)`
+          : res?.message || 'Ciclo de ingesta disparado exitosamente',
+        { id: 'ingest-all', duration: 5000 }
+      )
+      loadData(true)
+      setTimeout(() => loadData(true), 3000)
+      setTimeout(() => loadData(true), 7000)
     } catch (err: any) {
       toast.error('Error al forzar ciclo completo de ingesta', { id: 'ingest-all' })
     }
@@ -169,7 +181,7 @@ export default function AdminPage() {
             </button>
 
             <button
-              onClick={loadData}
+              onClick={() => loadData(false)}
               className="flex items-center gap-2 rounded-xl bg-slate-900 border border-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition shadow-lg"
             >
               <RefreshCw className="h-4 w-4" />
@@ -286,15 +298,19 @@ export default function AdminPage() {
                         <td className="p-3 font-mono text-emerald-400 font-bold">+{r.itemsNew}</td>
                         <td className="p-3">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              r.status === 'SUCCESS'
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              r.status === 'SUCCESS' || r.status === 'COMPLETED'
                                 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
                                 : r.status === 'RUNNING'
                                 ? 'bg-blue-950 text-blue-300 border border-blue-500/30 animate-pulse'
                                 : 'bg-red-950 text-red-300 border border-red-500/30'
                             }`}
                           >
-                            {r.status}
+                            {r.status === 'COMPLETED' || r.status === 'SUCCESS'
+                              ? 'COMPLETADO'
+                              : r.status === 'RUNNING'
+                              ? 'EN CURSO'
+                              : r.status}
                           </span>
                         </td>
                       </tr>
@@ -412,8 +428,24 @@ export default function AdminPage() {
                           <div className="text-[11px] font-mono text-slate-500 line-clamp-1">{it.url}</div>
                         </td>
                         <td className="p-3">
-                          <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                            {it.status}
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              it.status === 'EXTRACTED'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
+                                : it.status === 'CONTENT_READY' || it.status === 'DISCOVERED'
+                                ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/30'
+                                : it.status === 'IRRELEVANT'
+                                ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                                : 'bg-red-950 text-red-300 border border-red-500/30'
+                            }`}
+                          >
+                            {it.status === 'EXTRACTED'
+                              ? 'PROCESADO IA'
+                              : it.status === 'CONTENT_READY' || it.status === 'DISCOVERED'
+                              ? 'EN COLA IA'
+                              : it.status === 'IRRELEVANT'
+                              ? 'FILTRADO (NO DELITO)'
+                              : it.status}
                           </span>
                         </td>
                         <td className="p-3">

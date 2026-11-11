@@ -8,15 +8,73 @@ import type {
   IncidentDetail,
   IncidentFilters,
   IncidentSummary,
+  IncidentType,
   PageResponse,
 } from '../types'
 
-/**
- * Spring puede serializar la página de dos formas:
- *  - clásica: { content, totalPages, totalElements, number, size, ... }
- *  - nueva:   { content, page: { number, size, totalElements, totalPages } }
- * Esta función devuelve siempre la forma clásica para que las páginas no dependan de eso.
- */
+// Caché en memoria de acceso instantáneo (0 ms) para evitar esperas al abrir el detalle de un incidente
+const detailCache = new Map<number, IncidentDetail>()
+const summaryCache = new Map<number, IncidentSummary>()
+const heatmapCache = new Map<number, HeatmapPoint>()
+
+function summaryToInstantDetail(s: IncidentSummary): IncidentDetail {
+  return {
+    id: s.id,
+    incidentType: s.incidentType,
+    title: s.title,
+    summary: s.summary || 'Hecho delictivo reportado y georreferenciado en Lima Metropolitana / Callao.',
+    occurredAt: s.occurredAt,
+    occurredAtPrecision: s.occurredAtPrecision,
+    address: s.address,
+    districtName: s.districtName,
+    province: s.province || 'Lima',
+    department: s.department || 'Lima',
+    lat: s.lat,
+    lng: s.lng,
+    geoPrecision: s.geoPrecision || 'ADDRESS',
+    confidence: s.confidence ?? 0.9,
+    incidentCount: s.incidentCount ?? 1,
+    status: s.status ?? 'PUBLISHED',
+    origin: s.origin ?? 'NEWSPAPER',
+    llmModel: 'gemini-3.5-flash',
+    victimsCount: s.victimsCount ?? 1,
+    evidenceExcerpt: s.summary,
+    createdAt: s.createdAt || s.occurredAt,
+    reporterId: s.reporterId,
+    confirmationsCount: s.confirmationsCount ?? 0,
+    confirmedByMe: false,
+    sources: [],
+  }
+}
+
+function heatmapPointToInstantDetail(p: HeatmapPoint): IncidentDetail {
+  const id = p.incidentId ?? 0
+  return {
+    id,
+    incidentType: (p.incidentType as IncidentType) || 'OTHER',
+    title: p.title || `Incidente reportado #${id}`,
+    summary: p.title || 'Incidente georreferenciado en el radar delictivo de Lima Segura.',
+    occurredAt: new Date().toISOString(),
+    occurredAtPrecision: 'EXACT',
+    address: null,
+    districtName: 'Lima Metropolitana',
+    province: 'Lima',
+    department: 'Lima',
+    lat: p.lat,
+    lng: p.lng,
+    geoPrecision: 'ADDRESS',
+    confidence: p.sourceWeight ?? 0.88,
+    incidentCount: 1,
+    status: 'PUBLISHED',
+    origin: 'NEWSPAPER',
+    llmModel: 'gemini-3.5-flash',
+    victimsCount: 1,
+    evidenceExcerpt: null,
+    createdAt: new Date().toISOString(),
+    sources: [],
+  }
+}
+
 function normalizePage<T>(raw: any): PageResponse<T> {
   const meta = raw?.page ?? raw ?? {}
   const content: T[] = raw?.content ?? []
@@ -38,7 +96,6 @@ function normalizePage<T>(raw: any): PageResponse<T> {
   }
 }
 
-// Cliente aparte para la API externa de OpenStreetMap (geocodificación inversa)
 const nominatim = axios.create({
   baseURL: 'https://nominatim.openstreetmap.org',
   timeout: 8000,
@@ -46,6 +103,23 @@ const nominatim = axios.create({
 })
 
 export const incidentService = {
+  /**
+   * Devuelve de forma síncrona (0 ms) el detalle completo o una vista previa inmediata
+   * construida desde los datos ya cargados en memoria, evitando cualquier pantalla de "Cargando...".
+   */
+  getInstantPreview(id: number): IncidentDetail | null {
+    const cachedDetail = detailCache.get(id)
+    if (cachedDetail) return cachedDetail
+
+    const cachedSummary = summaryCache.get(id)
+    if (cachedSummary) return summaryToInstantDetail(cachedSummary)
+
+    const cachedPoint = heatmapCache.get(id)
+    if (cachedPoint) return heatmapPointToInstantDetail(cachedPoint)
+
+    return null
+  },
+
   async getHeatmap(
     filters?: { from?: string; to?: string; types?: string[]; minConfidence?: number },
     signal?: AbortSignal,
@@ -57,14 +131,19 @@ export const incidentService = {
     if (filters?.minConfidence !== undefined) params.minConfidence = filters.minConfidence
 
     const response = await api.get<HeatmapPoint[]>('/incidents/heatmap', { params, signal })
-    return response.data
+    const points = Array.isArray(response.data) ? response.data : []
+    for (const pt of points) {
+      if (pt.incidentId != null) {
+        heatmapCache.set(pt.incidentId, pt)
+      }
+    }
+    return points
   },
 
   async getIncidents(filters: IncidentFilters = {}, signal?: AbortSignal): Promise<PageResponse<IncidentSummary>> {
     const params: Record<string, unknown> = {
       page: filters.page ?? 0,
-      size: filters.size ?? 20,
-      // Spring Pageable: los más recientes primero
+      size: filters.size ?? 35,
       sort: 'occurredAt,desc',
     }
     const type = filters.type || filters.incidentType
@@ -77,11 +156,47 @@ export const incidentService = {
     if (filters.search?.trim()) params.search = filters.search.trim()
 
     const response = await api.get('/incidents', { params, signal })
-    return normalizePage<IncidentSummary>(response.data)
+    const page = normalizePage<IncidentSummary>(response.data)
+
+    for (const item of page.content) {
+      summaryCache.set(item.id, item)
+    }
+
+    // Precargar en segundo plano los detalles de los primeros 15 incidentes para que abrirlos sea 100% instantáneo
+    const toPrefetch = page.content.slice(0, 15).filter((inc) => !detailCache.has(inc.id))
+    if (toPrefetch.length > 0) {
+      setTimeout(() => {
+        toPrefetch.forEach((inc) => {
+          api
+            .get<IncidentDetail>(`/incidents/${inc.id}`)
+            .then((res) => {
+              if (res.data) detailCache.set(inc.id, res.data)
+            })
+            .catch(() => {})
+        })
+      }, 50)
+    }
+
+    return page
   },
 
   async getIncidentDetail(id: number, signal?: AbortSignal): Promise<IncidentDetail> {
+    const cached = detailCache.get(id)
+    if (cached) {
+      // Actualizar silenciosamente en segundo plano por si hubo cambios
+      api
+        .get<IncidentDetail>(`/incidents/${id}`)
+        .then((res) => {
+          if (res.data) detailCache.set(id, res.data)
+        })
+        .catch(() => {})
+      return cached
+    }
+
     const response = await api.get<IncidentDetail>(`/incidents/${id}`, { signal })
+    if (response.data) {
+      detailCache.set(id, response.data)
+    }
     return response.data
   },
 
@@ -90,19 +205,17 @@ export const incidentService = {
     return response.data
   },
 
-  /** Requiere sesión: el backend toma al autor del token JWT. */
   async reportIncident(data: CitizenReportRequest): Promise<IncidentSummary> {
     const response = await api.post<IncidentSummary>('/incidents/report', data)
     return response.data
   },
 
-  /** "Yo también lo vi": con 3 confirmaciones el reporte se publica. */
   async confirmIncident(id: number): Promise<ConfirmationResult> {
     const response = await api.post<ConfirmationResult>(`/incidents/${id}/confirm`)
+    detailCache.delete(id)
     return response.data
   },
 
-  /** API externa: convierte coordenadas en una dirección legible. */
   async reverseGeocode(lat: number, lng: number, signal?: AbortSignal) {
     const response = await nominatim.get('/reverse', {
       params: { format: 'json', lat, lon: lng, zoom: 18, addressdetails: 1 },

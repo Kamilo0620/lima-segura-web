@@ -35,7 +35,12 @@ function FollowValue({ value }: { value: LatLng | null }) {
 export default function LocationPicker({ value, onChange }: LocationPickerProps) {
   return (
     <div className="h-48 overflow-hidden rounded-xl border border-slate-800">
-      <MapContainer center={value ? [value.lat, value.lng] : LIMA_CENTER} zoom={12} className="h-full w-full">
+      <MapContainer
+        center={value ? [value.lat, value.lng] : LIMA_CENTER}
+        zoom={12}
+        maxZoom={22}
+        className="h-full w-full"
+      >
         <DarkTiles />
         <ClickHandler onChange={onChange} />
         <FollowValue value={value} />

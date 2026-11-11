@@ -70,8 +70,19 @@ export default function NearbyIncidentsCard({ incidents = [], userCoords, onSele
                 </div>
 
                 <div className="flex shrink-0 flex-col text-right leading-tight">
-                  <span className="text-[10px] font-medium text-slate-400">{formatTimeAgo(inc.occurredAt)}</span>
-                  {dist != null && <span className="text-[10px] font-bold text-red-400">{formatDistance(dist)}</span>}
+                  <span className="text-[10px] font-semibold text-amber-400" title="Tiempo transcurrido desde que ocurrió el hecho">
+                    {formatTimeAgo(inc.occurredAt)}
+                  </span>
+                  <span className="text-[9px] text-slate-400">
+                    {inc.occurredAt
+                      ? new Date(inc.occurredAt).toLocaleTimeString('es-PE', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false,
+                        })
+                      : ''}
+                    {dist != null ? ` · ${formatDistance(dist)}` : ''}
+                  </span>
                 </div>
               </button>
             )

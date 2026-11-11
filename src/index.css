@@ -6,6 +6,10 @@
   font-family: inherit;
 }
 
+.dark-osm-detail {
+  filter: invert(100%) hue-rotate(185deg) brightness(88%) contrast(96%) saturate(45%);
+}
+
 .leaflet-popup-content-wrapper {
   background: #0f172a !important;
   color: #f8fafc !important;
