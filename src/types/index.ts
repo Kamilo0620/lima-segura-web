@@ -236,7 +236,7 @@ export interface SourceItem {
 }
 
 export interface IncidentReviewRequest {
-  status: 'VALIDATED' | 'REJECTED'
+  status: 'PUBLISHED' | 'REJECTED'
   title?: string
   summary?: string
   incidentType?: IncidentType
