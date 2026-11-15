@@ -4,7 +4,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../hooks/useAuth'
 import { getErrorMessage } from '../services/api'
-import { KeyRound, LogIn, Mail, ShieldAlert, Sparkles } from 'lucide-react'
+import { KeyRound, LogIn, Mail, Sparkles } from 'lucide-react'
+import { LimaSeguraMark } from '../components/LimaSeguraLogo'
 import Spinner from '../components/Spinner'
 
 export default function LoginPage() {
@@ -50,8 +51,8 @@ export default function LoginPage() {
 
         {/* Brand Icon & Heading */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30 shadow-lg shadow-red-500/10">
-            <ShieldAlert className="h-7 w-7" />
+          <div className="mx-auto mb-3 flex justify-center">
+            <LimaSeguraMark className="h-14 w-14" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
             LIMA SEGURA

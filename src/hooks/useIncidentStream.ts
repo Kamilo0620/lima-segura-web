@@ -17,12 +17,13 @@ function parseIncidentId(data: string): number | null {
  * Se suscribe al stream SSE del backend y avisa cada vez que se publica un incidente.
  * El navegador reconecta solo si se cae la conexión.
  */
-export function useIncidentStream(onPublished: (incidentId: number) => void) {
+export function useIncidentStream(onPublished: (incidentId: number) => void, debounceMs = 0) {
   const callbackRef = useRef(onPublished)
   callbackRef.current = onPublished
 
   useEffect(() => {
     let source: EventSource
+    let timer: ReturnType<typeof setTimeout> | null = null
     try {
       source = incidentService.createEventSource()
     } catch {
@@ -30,9 +31,21 @@ export function useIncidentStream(onPublished: (incidentId: number) => void) {
     }
     const handler = (e: MessageEvent) => {
       const id = parseIncidentId(e.data)
-      if (id != null) callbackRef.current(id)
+      if (id == null) return
+      if (debounceMs <= 0) {
+        callbackRef.current(id)
+        return
+      }
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        timer = null
+        callbackRef.current(id)
+      }, debounceMs)
     }
     source.addEventListener('incident_published', handler)
-    return () => source.close()
-  }, [])
+    return () => {
+      if (timer) clearTimeout(timer)
+      source.close()
+    }
+  }, [debounceMs])
 }

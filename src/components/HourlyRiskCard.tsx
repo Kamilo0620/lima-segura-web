@@ -23,10 +23,15 @@ export default function HourlyRiskCard({ data = [] }: HourlyRiskCardProps) {
     <div className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-[#0d1424]/90 p-4 shadow-xl backdrop-blur-md">
       {/* Title */}
       <div className="flex items-center justify-between text-xs mb-3">
-        <div className="flex items-center gap-1.5 font-bold text-slate-200">
-          <span>Incidentes por hora del día</span>
+        <div>
+          <div className="flex items-center gap-1.5 font-bold text-slate-200">
+            <span>Incidentes por hora del día</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            Distribución según hora verificada del hecho (00h–24h)
+          </p>
         </div>
-        <span title="100 = la hora con más incidentes publicados">
+        <span title="Índice relativo (0–100): 100 equivale a la franja horaria con mayor incidencia verificada">
           <Info className="h-3.5 w-3.5 text-slate-400" />
         </span>
       </div>
@@ -80,6 +85,26 @@ export default function HourlyRiskCard({ data = [] }: HourlyRiskCardProps) {
         <span>16:00</span>
         <span>20:00</span>
         <span>24:00</span>
+      </div>
+
+      {/* Color Legend */}
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/70 pt-2 text-[9.5px] text-slate-400">
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-sm bg-emerald-500" />
+          Bajo (&lt;30)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-sm bg-yellow-500" />
+          Moderado (30–49)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-sm bg-amber-500" />
+          Alto (50–74)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-sm bg-red-500" />
+          Crítico (≥75)
+        </span>
       </div>
     </div>
   )

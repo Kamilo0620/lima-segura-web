@@ -80,7 +80,7 @@ export default function Sidebar() {
   return (
     <aside
       className={`relative flex flex-col justify-between border-r border-slate-800/80 bg-[#070b14] text-slate-300 shrink-0 min-h-[calc(100vh-64px)] transition-all duration-200 ease-in-out ${
-        isOpen ? 'w-64 p-3.5' : 'w-16 p-2 items-center'
+        isOpen ? 'w-64 p-3.5' : 'w-[88px] px-1.5 py-2.5 items-center'
       }`}
     >
       {/* Top Toggle Button + Navigation Items */}
@@ -117,20 +117,22 @@ export default function Sidebar() {
               <Link
                 key={item.label}
                 to={item.path}
-                title={!isOpen ? item.label : undefined}
-                className={`group relative flex items-center ${
-                  isOpen ? 'gap-3 px-3.5 py-2.5' : 'justify-center p-2.5'
-                } rounded-xl text-xs font-semibold transition ${
+                aria-label={item.label}
+                className={`group relative flex ${
+                  isOpen
+                    ? 'items-center gap-3 px-3.5 py-2.5 text-xs'
+                    : 'w-full flex-col items-center justify-center gap-1 px-1 py-2 text-center'
+                } rounded-xl font-semibold transition ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-bold'
-                    : 'text-slate-400 hover:bg-slate-900/70 hover:text-slate-100'
+                    : 'text-slate-400 hover:bg-slate-900/90 hover:text-slate-100'
                 }`}
               >
-                <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+                <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
                 {isOpen ? (
                   <span className="truncate">{item.label}</span>
                 ) : (
-                  <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xl group-hover:block">
+                  <span className="w-full text-[9.5px] leading-[1.15] font-medium tracking-tight line-clamp-2 break-words">
                     {item.label}
                   </span>
                 )}
@@ -199,11 +201,16 @@ export default function Sidebar() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-2 pt-3 border-t border-slate-800/80" title={`En tiempo real · Última actualización: ${lastUpdateTime}`}>
-          <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" title="Riesgo Bajo" />
-          <span className="h-2.5 w-2.5 rounded-full bg-orange-500" title="Riesgo Medio" />
-          <span className="h-2.5 w-2.5 rounded-full bg-red-500" title="Riesgo Alto" />
-          <span className="mt-2 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+        <div
+          className="flex flex-col items-center gap-1 pt-3 border-t border-slate-800/80 w-full"
+          title={`En tiempo real · Última actualización: ${lastUpdateTime}`}
+        >
+          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/50 px-2 py-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[8.5px] font-bold uppercase tracking-wider text-emerald-300">
+              Vivo
+            </span>
+          </div>
         </div>
       )}
     </aside>

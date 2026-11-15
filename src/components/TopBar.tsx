@@ -80,7 +80,7 @@ export default function TopBar({ onSearch, onToggleFilters }: TopBarProps) {
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-slate-800 bg-[#090d16]/95 px-4 backdrop-blur-md lg:px-6">
       {/* 1. Left Logo */}
-      <Link to="/" className="flex items-center gap-3">
+      <Link to="/" className="flex items-center gap-3 shrink-0">
         <LimaSeguraLogo className="h-9 w-9" />
       </Link>
 

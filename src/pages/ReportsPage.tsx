@@ -66,7 +66,7 @@ export default function ReportsPage() {
       ),
     [type, district, status, origin, q, page],
   )
-  const { data, loading, error, refetch } = useFetch(fetcher)
+  const { data, loading, error, refetch } = useFetch(fetcher, { pollMs: 6000, streamRefresh: true })
 
   // Cuando el usuario deja de escribir, el texto pasa a la URL (y eso dispara la búsqueda en el servidor)
   useEffect(() => {

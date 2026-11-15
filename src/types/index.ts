@@ -78,7 +78,14 @@ export type IncidentOrigin =
 
 // Debe coincidir con el enum IncidentStatus del backend
 export type IncidentStatus = 'PENDING_REVIEW' | 'PUBLISHED' | 'REJECTED' | 'VALIDATED' | 'VERIFIED'
-export type GeoPrecision = 'EXACT_ADDRESS' | 'INTERSECTION' | 'NEIGHBORHOOD' | 'DISTRICT'
+export type GeoPrecision =
+  | 'ADDRESS'
+  | 'EXACT_ADDRESS'
+  | 'INTERSECTION'
+  | 'NEIGHBORHOOD'
+  | 'DISTRICT'
+  | 'PROVINCE'
+  | 'DEPARTMENT'
 export type OccurredAtPrecision = 'EXACT' | 'APPROXIMATE' | 'DAY' | 'UNKNOWN'
 
 export interface HeatmapPoint {
@@ -86,9 +93,11 @@ export interface HeatmapPoint {
   lng: number
   weight: number
   colorHint: 'red' | 'orange' | 'yellow' | 'gray' | string
+  colorHex?: string
   severity: number
   sourceWeight: number
   timeFactor: number
+  corroborationCount?: number
   incidentId: number
   incidentType: IncidentType
   title: string
@@ -249,5 +258,68 @@ export interface DatasetImportResult {
   totalRows: number
   importedCount: number
   skippedCount: number
+  importedRows?: number
+  filteredOutRows?: number
+  errorRows?: number
+  message?: string
   errors: string[]
+}
+
+export interface OfficialSourceAudit {
+  id: string
+  name: string
+  agency: string
+  endpointUrl: string
+  reachable: boolean
+  updateCadence: string
+  latestDataDate: string
+  estimatedLagDays?: number | null
+  totalRecords?: number | null
+  suitableForRealtimeAlerts: boolean
+  recommendedRole: string
+  noiseAndFilteringNotes: string
+}
+
+export interface OfficialSourcesStatusResponse {
+  auditedAt: string
+  executiveSummary: string
+  sources: OfficialSourceAudit[]
+}
+
+export interface PipelineTelemetryLog {
+  timestamp: string
+  stage: string
+  level: string
+  source: string
+  message: string
+}
+
+export interface PipelineTelemetryRecentItem {
+  id: number
+  title: string
+  origin: IncidentOrigin | string
+  districtName: string
+  geoPrecision: string
+  llmModel: string
+  occurredAt: string
+  createdAt: string
+}
+
+export interface PipelineTelemetryResponse {
+  searchingInternetNow: boolean
+  activeOperationsCount: number
+  currentOperation: string
+  lastActivityAt: string
+  totalPublished: number
+  realNewspaperCount: number
+  realYoutubeCount: number
+  citizenCount: number
+  sampleBaselineCount: number
+  pendingReviewCount: number
+  sourceItemsQueued: number
+  sourceItemsExtracted: number
+  sourceItemsDiscarded: number
+  sourceItemsFailed: number
+  recentPublished: PipelineTelemetryRecentItem[]
+  recentLogs: PipelineTelemetryLog[]
 }

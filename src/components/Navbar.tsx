@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { LimaSeguraMark } from './LimaSeguraLogo'
 
 interface NavItem {
   to: string
@@ -50,9 +51,7 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Brand */}
         <NavLink to="/" className="flex items-center gap-2.5 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-600/20 text-red-500 border border-red-500/30 group-hover:scale-105 transition">
-            <ShieldAlert className="h-5 w-5" />
-          </div>
+          <LimaSeguraMark className="h-9 w-9 group-hover:scale-105 transition" />
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-black tracking-wider text-slate-100">

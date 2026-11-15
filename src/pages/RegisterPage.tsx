@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../hooks/useAuth'
 import { getErrorMessage } from '../services/api'
-import { KeyRound, Mail, ShieldAlert, User, UserPlus } from 'lucide-react'
+import { KeyRound, Mail, User, UserPlus } from 'lucide-react'
+import { LimaSeguraMark } from '../components/LimaSeguraLogo'
 import Spinner from '../components/Spinner'
 
 interface RegisterForm {
@@ -63,8 +64,8 @@ export default function RegisterPage() {
         <div className="pointer-events-none absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-blue-600/15 blur-3xl" />
 
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30 shadow-lg shadow-red-500/10">
-            <ShieldAlert className="h-7 w-7" />
+          <div className="mx-auto mb-3 flex justify-center">
+            <LimaSeguraMark className="h-14 w-14" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
             LIMA SEGURA

@@ -1,7 +1,6 @@
 import { CircleMarker, MapContainer, useMap, useMapEvents } from 'react-leaflet'
 import DarkTiles from './DarkTiles'
-import { useEffect } from 'react'
-import 'leaflet/dist/leaflet.css'
+import { useEffect, useRef } from 'react'
 
 export interface LatLng {
   lat: number
@@ -22,12 +21,20 @@ function ClickHandler({ onChange }: { onChange: (value: LatLng) => void }) {
   return null
 }
 
-/** Mueve el mapa cuando la ubicación cambia desde fuera (por ejemplo, con el GPS). */
+/** Mueve el mapa una sola vez cuando la coordenada cambia realmente desde fuera. */
 function FollowValue({ value }: { value: LatLng | null }) {
   const map = useMap()
+  const lastKeyRef = useRef<string>('')
   useEffect(() => {
-    if (value) map.setView([value.lat, value.lng], Math.max(map.getZoom(), 15))
-  }, [value, map])
+    if (!value) {
+      lastKeyRef.current = ''
+      return
+    }
+    const key = `${value.lat.toFixed(6)},${value.lng.toFixed(6)}`
+    if (key === lastKeyRef.current) return
+    lastKeyRef.current = key
+    map.setView([value.lat, value.lng], Math.max(map.getZoom(), 15))
+  }, [value?.lat, value?.lng, map])
   return null
 }
 
