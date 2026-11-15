@@ -108,14 +108,15 @@ Para desplegar:
 
 ---
 
-## 👥 Equipo
+## 👥 Equipo y coevaluación
 
 Proyecto del curso **CS 2031 - Desarrollo Basado en Plataformas**, UTEC.
 
-| Integrante | Rol en el Proyecto 2 |
-|---|---|
-| Kamilo Neyra | Líder del equipo · Web y UI/UX |
-| Jasyr Valdez | Ingesta de noticias con IA · Mobile |
-| Elías Paz | Mobile |
+| Integrante | Aportes principales | Participación |
+|---|---|---|
+| Kamilo Alfonso Neyra Chipana | Líder; web (React) y UI/UX; integración backend–web; reportes ciudadanos y confirmaciones; seguridad; documentación | 100 % |
+| Jasyr Arnaldo Valdez Parra | Ingesta de noticias con IA (Gemini); filtros y mapa de calor; mobile | 100 % |
+| Elías Emanuel Paz Raymondi | Mobile (Expo) | 100 % |
+| **Total** | | **100 %** |
 
 El trabajo se organiza con ramas por funcionalidad y Pull Requests hacia `main`, que está protegida.
