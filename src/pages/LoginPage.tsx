@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../hooks/useAuth'
 import { getErrorMessage } from '../services/api'
-import { KeyRound, LogIn, Mail, ShieldAlert, Sparkles } from 'lucide-react'
+import { KeyRound, LogIn, Mail, ShieldAlert } from 'lucide-react'
 import Spinner from '../components/Spinner'
 
 export default function LoginPage() {
@@ -36,11 +36,6 @@ export default function LoginPage() {
     }
   }
 
-  function handleFillAdmin() {
-    setEmail('admin@limasegura.pe')
-    setPassword('password123')
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl backdrop-blur-2xl">
@@ -60,24 +55,6 @@ export default function LoginPage() {
             Acceso a la Plataforma de Monitoreo & Control Delictivo
           </p>
         </div>
-
-        {/* Quick Demo Credentials Pill */}
-        <button
-          type="button"
-          onClick={handleFillAdmin}
-          className="mb-5 flex w-full items-center justify-between rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300 transition hover:bg-red-900/50"
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-red-400 shrink-0" />
-            <div className="text-left">
-              <span className="font-bold">Usar Credenciales de Administrador:</span>
-              <div className="text-[11px] text-red-400/80">admin@limasegura.pe / password123</div>
-            </div>
-          </div>
-          <span className="rounded bg-red-800/60 px-2 py-0.5 text-[10px] font-bold text-white">
-            Autocompletar
-          </span>
-        </button>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
