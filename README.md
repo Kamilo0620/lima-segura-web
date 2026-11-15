@@ -1,98 +1,121 @@
-# 🛡️ Lima Segura - Frontend Web & Radar Delictivo en Tiempo Real
+# 🛡️ LIMA SEGURA — Frontend Web
 
-Aplicación web desarrollada en **React 19**, **TypeScript** y **Vite** para la plataforma **Lima Segura**. Ofrece un centro de comando y visualización geoespacial de delitos e incidentes en Lima Metropolitana y el Callao, integrando mapas de calor, cálculo de riesgo perimetral con GPS y módulos de seguridad ciudadana.
+## CS 2031 - Desarrollo Basado en Plataformas (UTEC)
 
----
+Aplicación web en **React 19 + TypeScript + Vite** del proyecto **LIMA SEGURA**: un mapa de inseguridad urbana de Lima Metropolitana y el Callao que combina **noticias procesadas con IA (Gemini)** y **reportes ciudadanos validados por la comunidad**.
 
-## ✨ Características y Vistas Implementadas
-
-### 1. Dashboard Situacional (`/`)
-* **Mapa de Calor Dinámico:** Renderizado en **Leaflet** con capas de mapa oscuro (*Esri World Dark Canvas*), satelital y callejero.
-* **Evaluación de Riesgo en tu Ubicación:** Cálculo en vivo (0 a 100) del índice de amenaza perimetral mediante la fórmula de Haversine contra los puntos de delito cercanos.
-* **Solicitud de Ubicación GPS:** Detección de coordenadas HTML5 y geocodificación inversa para ubicar la posición exacta del usuario en el mapa con un radar pulsante.
-* **Analítica Diaria:** Gráfica de distribución de riesgo por franja horaria (con pico crítico 18:00 - 22:00), donas de categorías delictivas y ranking de zonas de mayor peligrosidad.
-* **Botón de Reporte Rápido:** Modal interactivo para que los ciudadanos reporten incidentes en tiempo real.
-
-### 2. Mapa de Riesgo Integral (`/mapa`)
-* Vista de mapa a pantalla completa con controles de filtros por los 43 distritos de Lima y Callao.
-* Selector de capas cartográficas y visor de expediente detallado al seleccionar cualquier marcador de delito.
-
-### 3. Centro de Reportes y Expedientes (`/reportes`)
-* Directorio completo de incidentes extraídos por el motor de IA y denuncias ciudadanas.
-* Filtros por tipo de delito (Sicariato, Asalto, Extorsión, Microcomercialización, etc.), estado de verificación y distrito.
-* Expediente modal de inteligencia con fragmentos periodísticos y fuentes originales auditadas.
-
-### 4. Centro de Notificaciones & Perímetro de Alerta (`/alertas`)
-* Control deslizante para calibrar el radio perimetral de seguridad (100 m a 3 km).
-* Activación de advertencias acústicas (Web Audio API) ante homicidios o balaceras cercanas.
-* Simulador de alertas tempranas push.
-
-### 5. Histórico y Curva de Decaimiento (`/historico`)
-* Seguimiento de la reducción delictiva a través de la fórmula de decaimiento temporal exponencial ($\lambda = 0.05/\text{día}$).
-* Tablas comparativas de evolución mensual y exportador de datos en formato **CSV**.
-
-### 6. Analítica Espacio-Temporal (`/estadisticas`)
-* Ranking distrital de densidad delictiva (Cercado de Lima, SJL, Callao, SMP, La Victoria, etc.).
-* Métricas de rendimiento y precisión del modelo de Inteligencia Artificial (91.4% de precisión NLP).
-
-### 7. Red Comunitaria de Seguridad (`/comunidad`)
-* Tablón de alertas vecinales en tiempo real con sistema de validación y votos ciudadanos.
-* Directorio de patrullaje coordinado con serenazgos y juntas vecinales distritales.
-
-### 8. Configuración del Sistema (`/configuracion`)
-* Ajustes de alta precisión GPS, preferencia de tema visual, intervalo de refresco automático y perfil de usuario.
-
-### 9. Asistencia & Centrales de Emergencia (`/ayuda`)
-* Marcación directa a centrales de auxilio: **PNP 105**, **Bomberos 116**, **SAMU 106**, **Línea 100** y Serenazgo de Lima.
-* Guía de funcionamiento de la plataforma y protocolos de seguridad en zonas rojas.
-
-### 10. Consola de Administración (`/admin` - Requiere rol `ADMIN`)
-* Monitoreo de corridas del pipeline de ingesta (cada 5 minutos).
-* Botón de disparo forzado de ingesta inmediata (`POST /api/v1/admin/ingestion/trigger-all`).
-* Auditoría de noticias y cola de moderación de incidentes.
+- **Backend (API REST):** [lima-segura-backend](https://github.com/Kamilo0620/lima-segura-backend)
+- **Mobile:** [lima-segura-mobile](https://github.com/EliasFly/lima-segura-mobile)
 
 ---
 
-## 🛠️ Stack Tecnológico
+## ✨ Funcionalidades
 
-* **Frontend Library:** React 19 + TypeScript
-* **Build Tool:** Vite 8
-* **Estilos:** Tailwind CSS 3
-* **Mapas Geoespaciales:** Leaflet & React-Leaflet
-* **Iconografía:** Lucide React
-* **Cliente HTTP:** Axios con interceptores de autenticación JWT y manejo centralizado de errores
-* **Navegación:** React Router 7
+### Dashboard (`/`)
+- **Mapa de calor** con Leaflet (mapa base oscuro de Esri) y filtros por zona, distrito y periodo; capa de calor y capa de focos.
+- **Riesgo en tu ubicación:** con el GPS del navegador se calcula un índice 0–100 solo con los incidentes reales a menos de 1 km (distancia Haversine, ponderado por gravedad y cercanía). Sin incidentes cerca, el índice es 0.
+- **Geocodificación inversa** con la API externa de OpenStreetMap (Nominatim) para mostrar la dirección y el distrito del usuario.
+- **Incidentes más cercanos** ordenados por distancia real, y gráficos de incidentes por hora, por categoría y distritos con más casos (datos del endpoint de estadísticas).
+
+### Reportes (`/reportes`) y detalle (`/incidents/:id`)
+- Listado paginado con **búsqueda en el servidor** (con *debounce* de 400 ms) y filtros por tipo, distrito, estado y origen. Los filtros viven en la URL (`useSearchParams`), así que se pueden compartir o recargar.
+- Página de detalle con mapa, fuentes periodísticas vinculadas, migas de pan (*breadcrumbs*) y, para incidentes extraídos con IA, el modelo y su nivel de confianza.
+- Los **datos de ejemplo** se etiquetan como tales; no se muestran valores inventados cuando falta un dato.
+
+### Comunidad (`/comunidad`)
+- Reportes ciudadanos reales en dos pestañas: **Por confirmar** y **Confirmados**.
+- Botón **"Yo también lo vi"**: con 3 confirmaciones de usuarios distintos el reporte se publica en el mapa. El autor no puede confirmar su propio reporte.
+- **Reportar incidente** (requiere sesión): tipo, título, ubicación marcada en un mapa o con "Usar mi ubicación", distrito y descripción.
+
+### Tiempo real
+- La **campanita** recibe por **Server-Sent Events** (`/incidents/stream`) cada incidente publicado y enlaza a su detalle; el dashboard se actualiza solo.
+
+### Otras vistas
+- **Mapa de riesgo** (`/mapa`), **Histórico** (`/historico`, evolución mensual y exportación a CSV), **Estadísticas** (`/estadisticas`), **Mis alertas** (`/alertas`, radio configurable alrededor de tu ubicación), **Configuración** (`/configuracion`) y **Ayuda** (`/ayuda`, centrales de emergencia y preguntas frecuentes).
+- **Consola de administración** (`/admin`, solo rol `ADMIN`): fuentes de noticias, ejecuciones de ingesta y moderación de incidentes.
 
 ---
 
-## ⚙️ Instalación y Ejecución en Local
+## 🧱 Arquitectura y buenas prácticas
+
+| Tema | Implementación |
+|---|---|
+| Cliente HTTP | `axios` con interceptor que agrega el JWT y cierra la sesión ante un `401`; mensajes de error centralizados (`getErrorMessage`) |
+| Hooks propios | `useFetch` (carga + cancelación con `AbortController`), `useDebounce`, `useUserLocation`, `useIncidentStream` (SSE), `useAuth` |
+| Rutas | React Router 7 con carga diferida (`lazy` + `Suspense`), rutas protegidas (`ProtectedRoute`), ruta solo para admin y página 404 propia |
+| Estado global | `AuthContext` (usuario y token) |
+| Errores | `ErrorBoundary` global, componentes `ErrorMessage` y `EmptyState`, notificaciones con `react-hot-toast` |
+| Componentes reutilizables | `Pagination`, `Breadcrumbs`, `LocationPicker`, `ConfirmIncidentButton`, `DarkTiles`, `Spinner`, modales de detalle y de reporte |
+| API externa | OpenStreetMap Nominatim (geocodificación inversa) |
+
+---
+
+## 🛠️ Stack
+
+- React 19 + TypeScript
+- Vite 8
+- Tailwind CSS 4
+- Leaflet + React-Leaflet 5
+- Axios
+- React Router 7
+- Lucide React (íconos) y react-hot-toast
+
+---
+
+## ⚙️ Ejecución local
 
 ### Prerrequisitos
-* **Node.js** v18 o superior
-* **npm**
+- Node.js 18 o superior
+- El **backend** corriendo en `http://localhost:8080` (ver su README)
 
 ### Pasos
-1. Entrar al directorio del frontend:
-   ```bash
-   cd lima-segura-web
-   ```
-2. Instalar dependencias:
-   ```bash
-   npm install
-   ```
-3. Iniciar el servidor de desarrollo:
-   ```bash
-   npm run dev
-   ```
-4. Abrir en el navegador: `http://localhost:5173`.
-
-### Compilación para Producción
 ```bash
-npm run build
+git clone https://github.com/Kamilo0620/lima-segura-web.git
+cd lima-segura-web
+npm install
+npm run dev
 ```
+Abrir **http://localhost:5173**.
+
+> Si Vite abre otro puerto (por ejemplo 5174, porque ya hay otro `npm run dev` abierto), el backend rechazará las peticiones por **CORS**. Cerrar el otro servidor o agregar ese origen a `CORS_ALLOWED_ORIGINS` en el backend.
+
+### Variables de entorno
+
+| Variable | Descripción | Por defecto |
+|---|---|---|
+| `VITE_API_URL` | URL base de la API | `http://localhost:8080/api/v1` |
+
+Se define en el archivo `.env` de la raíz. Vite solo expone las variables que empiezan con `VITE_` y las incrusta en el build, así que **no** deben contener secretos.
+
+### Usuarios de prueba
+- Registrarse desde `/register` (todo registro crea un usuario ciudadano).
+- Administrador sembrado por el backend: `admin@limasegura.pe` (la contraseña de desarrollo debe cambiarse antes del deploy).
 
 ---
 
-## 👥 Equipo y Autoría
-Proyecto desarrollado para el curso **Desarrollo Basado en Plataformas** (UTEC).
-* **Contribuidor:** Jasyr Valdez (`jasyr.valdez@utec.edu.pe`)
+## 🚀 Build y despliegue
+
+```bash
+npm run build      # genera la carpeta dist/
+npm run preview    # sirve dist/ localmente para revisarlo
+```
+
+Para desplegar:
+1. Definir `VITE_API_URL` con la URL pública del backend **antes** de `npm run build` (por ejemplo `https://api.midominio.com/api/v1`).
+2. Subir la carpeta `dist/` a un hosting estático (AWS Amplify, o S3 + CloudFront, entre otros).
+3. Configurar el hosting para que todas las rutas respondan con `index.html` (la app usa rutas del lado del cliente como `/reportes` o `/incidents/12`).
+4. Agregar el dominio de la web a `CORS_ALLOWED_ORIGINS` en el backend.
+
+---
+
+## 👥 Equipo
+
+Proyecto del curso **CS 2031 - Desarrollo Basado en Plataformas**, UTEC.
+
+| Integrante | Rol en el Proyecto 2 |
+|---|---|
+| Kamilo Neyra | Líder del equipo · Web y UI/UX |
+| Jasyr Valdez | Ingesta de noticias con IA · Mobile |
+| Elías Paz | Mobile |
+
+El trabajo se organiza con ramas por funcionalidad y Pull Requests hacia `main`, que está protegida.
