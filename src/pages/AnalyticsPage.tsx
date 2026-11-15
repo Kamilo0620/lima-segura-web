@@ -15,7 +15,7 @@ import {
 
 export default function AnalyticsPage() {
   const fetcher = useCallback((signal: AbortSignal) => incidentService.getDashboardStats(signal), [])
-  const { data: stats, error, refetch } = useFetch(fetcher)
+  const { data: stats, error, refetch } = useFetch(fetcher, { pollMs: 6000, streamRefresh: true })
   const districtRankings = stats?.topDangerZones ?? []
 
   return (

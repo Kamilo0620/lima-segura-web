@@ -142,6 +142,13 @@ export default function IncidentDetailModal({ incidentId, onClose }: IncidentDet
                     {status.label}
                   </span>
                 )}
+
+                {(detail.sources?.length ?? 0) > 1 && (
+                  <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-950/50 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Verificado en {detail.sources.length} medios
+                  </span>
+                )}
               </div>
 
               {detail.origin === 'SAMPLE' && (

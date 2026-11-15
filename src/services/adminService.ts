@@ -6,7 +6,9 @@ import type {
   IncidentSummary,
   IngestionRun,
   NewsSource,
+  OfficialSourcesStatusResponse,
   PageResponse,
+  PipelineTelemetryResponse,
   SourceItem,
   SourceItemStatus,
 } from '../types'
@@ -112,6 +114,31 @@ export const adminService = {
     return res.data
   },
 
+  async triggerCrossVerification(): Promise<{
+    inspected: number
+    refinedGeo: number
+    refinedTime: number
+    corroboratedSourcesAdded: number
+  }> {
+    const res = await api.post('/admin/ingestion/cross-verify')
+    return res.data
+  },
+
+  // Official PNP / MININTER / INEI sources evaluation & filtered baseline sync
+  async getOfficialSourcesStatus(refresh = false): Promise<OfficialSourcesStatusResponse> {
+    const res = await api.get<OfficialSourcesStatusResponse>('/admin/datasets/official-sources/status', {
+      params: { refresh },
+    })
+    return res.data
+  },
+
+  async syncPnpBaseline(limit = 25): Promise<DatasetImportResult> {
+    const res = await api.post<DatasetImportResult>('/admin/datasets/official-sources/sync-pnp', null, {
+      params: { limit },
+    })
+    return res.data
+  },
+
   // Dataset CSV import (PNP / INEI)
   async importDataset(file: File): Promise<DatasetImportResult> {
     const formData = new FormData()
@@ -119,6 +146,11 @@ export const adminService = {
     const res = await api.post<DatasetImportResult>('/admin/datasets/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
+    return res.data
+  },
+
+  async getTelemetry(): Promise<PipelineTelemetryResponse> {
+    const res = await api.get<PipelineTelemetryResponse>('/admin/telemetry')
     return res.data
   },
 }

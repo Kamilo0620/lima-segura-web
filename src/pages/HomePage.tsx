@@ -90,8 +90,10 @@ export default function HomePage() {
   useEffect(() => {
     loadData()
     const bgTimer = setInterval(() => {
-      loadData()
-    }, 20000)
+      if (document.visibilityState === 'visible') {
+        loadData()
+      }
+    }, 6000)
 
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -108,7 +110,7 @@ export default function HomePage() {
 
   useIncidentStream(() => {
     loadData()
-  })
+  }, 250)
 
   // Filtrar puntos por tipo de delito y búsqueda (Región, Distrito y Hora se filtran en IncidentsMap y también aquí)
   const prefilteredPoints = useMemo(() => {
@@ -173,23 +175,28 @@ export default function HomePage() {
     Boolean(selectedCrimeType) ||
     Boolean(searchQuery)
 
-  // Coordenadas exactas del incidente seleccionado para acercar el mapa sin difuminarlo
-  const selectedCoords = useMemo<[number, number] | null>(() => {
-    if (!selectedIncidentId) return null
+  // Coordenadas estables del incidente seleccionado (no cambian de referencia tras polling cada 6s)
+  const selectedCoordLatLng = (() => {
+    if (!selectedIncidentId) return { lat: null as number | null, lng: null as number | null }
     const fromRecent = recentIncidents.find((i) => i.id === selectedIncidentId)
     if (fromRecent && fromRecent.lat != null && fromRecent.lng != null) {
-      return [fromRecent.lat, fromRecent.lng]
+      return { lat: fromRecent.lat, lng: fromRecent.lng }
     }
     const fromPoints = points.find((p) => p.incidentId === selectedIncidentId)
     if (fromPoints && fromPoints.lat != null && fromPoints.lng != null) {
-      return [fromPoints.lat, fromPoints.lng]
+      return { lat: fromPoints.lat, lng: fromPoints.lng }
     }
     const preview = incidentService.getInstantPreview(selectedIncidentId)
     if (preview && preview.lat != null && preview.lng != null) {
-      return [preview.lat, preview.lng]
+      return { lat: preview.lat, lng: preview.lng }
     }
-    return null
-  }, [selectedIncidentId, recentIncidents, points])
+    return { lat: null as number | null, lng: null as number | null }
+  })()
+
+  const selectedCoords = useMemo<[number, number] | null>(() => {
+    if (selectedCoordLatLng.lat == null || selectedCoordLatLng.lng == null) return null
+    return [selectedCoordLatLng.lat, selectedCoordLatLng.lng]
+  }, [selectedCoordLatLng.lat, selectedCoordLatLng.lng])
 
   return (
     <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans">

@@ -33,7 +33,7 @@ export default function HistoryPage() {
     },
     [period],
   )
-  const { data, loading, error, refetch } = useFetch(fetcher)
+  const { data, loading, error, refetch } = useFetch(fetcher, { pollMs: 6000, streamRefresh: true })
   const incidents = useMemo(() => data?.content ?? [], [data])
 
   // Agrupación por mes, calculada con los incidentes reales del periodo

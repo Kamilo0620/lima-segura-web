@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { HeatmapPoint } from '../types'
+import GoogleMapsCanvas from './GoogleMapsCanvas'
 import {
   DISTRICT_METADATA,
   getDistrictMeta,
@@ -22,51 +23,93 @@ import {
   ChevronDown,
 } from 'lucide-react'
 
-// Garantiza que ningún punto cercano a la Costa Verde / Callao / San Miguel / Miraflores / Chorrillos caiga en el mar
-function clampToLimaLand(lat: number, lng: number): [number, number] {
-  let safeLng = lng
-  if (lat <= -12.072 && lat > -12.090 && safeLng < -77.0875) {
-    safeLng = -77.0865
-  } else if (lat <= -12.090 && lat > -12.110 && safeLng < -77.0685) {
-    safeLng = -77.0655
-  } else if (lat <= -12.110 && lat > -12.150 && safeLng < -77.0320) {
-    safeLng = -77.0295
-  } else if (lat <= -12.150 && lat > -12.190 && safeLng < -77.0255) {
-    safeLng = -77.0225
+const COASTLINE_LAND_LIMITS: Array<[number, number]> = [
+  [-11.77, -77.168],
+  [-11.83, -77.152],
+  [-11.88, -77.145],
+  [-11.95, -77.136],
+  [-12.02, -77.134],
+  [-12.055, -77.145],
+  [-12.07, -77.132],
+  [-12.078, -77.112],
+  [-12.088, -77.094],
+  [-12.098, -77.074],
+  [-12.108, -77.056],
+  [-12.122, -77.039],
+  [-12.142, -77.025],
+  [-12.165, -77.023],
+  [-12.205, -77.018],
+  [-12.25, -76.935],
+]
+
+function interpolateCoastMinLng(lat: number): number {
+  if (lat >= COASTLINE_LAND_LIMITS[0][0]) return COASTLINE_LAND_LIMITS[0][1]
+  const last = COASTLINE_LAND_LIMITS.length - 1
+  if (lat <= COASTLINE_LAND_LIMITS[last][0]) return COASTLINE_LAND_LIMITS[last][1]
+  for (let i = 0; i < last; i++) {
+    const [latA, lngA] = COASTLINE_LAND_LIMITS[i]
+    const [latB, lngB] = COASTLINE_LAND_LIMITS[i + 1]
+    if (lat <= latA && lat >= latB) {
+      const t = (latA - lat) / (latA - latB)
+      return lngA + t * (lngB - lngA)
+    }
   }
-  return [lat, safeLng]
+  return -77.135
 }
 
-// Determine thermal level (red / orange / yellow) and circle size based on incident recency (timeFactor) & weighted intensity
+// Garantiza mediante la curva costera real que ningún punto caiga en el Océano Pacífico
+function clampToLimaLand(lat: number, lng: number, seed = 17): [number, number] {
+  const minLandLng = interpolateCoastMinLng(lat)
+  if (lng < minLandLng) {
+    const jitter = 0.0008 + ((Math.abs(seed * 2654435761) % 1000) / 1000) * 0.0032
+    return [lat, minLandLng + jitter]
+  }
+  return [lat, lng]
+}
+
+const GRADUATED_STYLES: Record<string, { level: 'ALTO' | 'MEDIO' | 'BAJO'; strokeColor: string }> = {
+  '#dc2626': { level: 'ALTO', strokeColor: '#fecaca' },
+  '#ef4444': { level: 'ALTO', strokeColor: '#fecaca' },
+  '#f97316': { level: 'MEDIO', strokeColor: '#fed7aa' },
+  '#fb923c': { level: 'MEDIO', strokeColor: '#fed7aa' },
+  '#f59e0b': { level: 'MEDIO', strokeColor: '#fde68a' },
+  '#eab308': { level: 'BAJO', strokeColor: '#fef08a' },
+  '#facc15': { level: 'BAJO', strokeColor: '#fef08a' },
+  '#fde047': { level: 'BAJO', strokeColor: '#fef9c3' },
+}
+
+// Determine graduated shade (across Amarillo -> Naranja -> Rojo) & circle size by exact event time, severity & weight
 function getIntensityStyle(point: HeatmapPoint) {
   const severity = point.severity ?? 5
-  const timeFactor = point.timeFactor ?? 0.7
+  const timeFactor = point.timeFactor ?? 0.65
   const weight = point.weight ?? severity * 0.8 * timeFactor
+  const severityNorm = Math.min(1, Math.max(0, severity / 10))
+  const score = 0.65 * timeFactor + 0.35 * severityNorm
 
-  // ALTO (Rojo): Noticias recientes (0-6h, timeFactor = 1.0) con gravedad media-alta o intensidad ponderada >= 4.0
-  if ((timeFactor >= 0.9 && weight >= 4.0) || (timeFactor >= 0.7 && weight >= 5.8)) {
-    return {
-      level: 'ALTO',
-      fillColor: '#ef4444',
-      strokeColor: '#fecaca',
-      radius: Math.min(10, Math.max(6.8, 5.2 + weight * 0.6)),
-    }
+  let fillColor = point.colorHex?.toLowerCase()
+  if (!fillColor || !GRADUATED_STYLES[fillColor]) {
+    if (score >= 0.88) fillColor = '#dc2626'
+    else if (score >= 0.78) fillColor = '#ef4444'
+    else if (score >= 0.68) fillColor = '#f97316'
+    else if (score >= 0.56) fillColor = '#fb923c'
+    else if (score >= 0.44) fillColor = '#f59e0b'
+    else if (score >= 0.32) fillColor = '#eab308'
+    else fillColor = '#facc15'
   }
-  // MEDIO (Naranja): Noticias del día (6-24h, timeFactor = 0.7) o intensidad ponderada moderada (>= 2.1)
-  if ((timeFactor >= 0.6 && weight >= 2.1) || weight >= 3.2) {
-    return {
-      level: 'MEDIO',
-      fillColor: '#f97316',
-      strokeColor: '#fed7aa',
-      radius: Math.min(8.2, Math.max(5.5, 4.6 + weight * 0.5)),
-    }
-  }
-  // BAJO (Amarillo): Noticias con mayor antigüedad (>24h, timeFactor <= 0.4) o menor gravedad
+
+  const meta = GRADUATED_STYLES[fillColor]
+  const radius =
+    meta.level === 'ALTO'
+      ? Math.min(10.5, Math.max(6.8, 5.2 + weight * 0.55))
+      : meta.level === 'MEDIO'
+        ? Math.min(8.5, Math.max(5.5, 4.6 + weight * 0.45))
+        : Math.min(6.8, Math.max(4.4, 4.0 + weight * 0.38))
+
   return {
-    level: 'BAJO',
-    fillColor: '#facc15',
-    strokeColor: '#fef08a',
-    radius: Math.min(6.8, Math.max(4.5, 4.0 + weight * 0.4)),
+    level: meta.level,
+    fillColor,
+    strokeColor: meta.strokeColor,
+    radius,
   }
 }
 
@@ -197,6 +240,7 @@ function FastThermalAndCirclesOverlay({
     heatCanvas.style.zIndex = '415'
     heatCanvas.style.mixBlendMode = 'screen'
     heatCanvas.style.transformOrigin = '0 0'
+    heatCanvas.style.willChange = 'transform'
     container.appendChild(heatCanvas)
     heatCanvasRef.current = heatCanvas
 
@@ -209,6 +253,7 @@ function FastThermalAndCirclesOverlay({
     circlesCanvas.style.pointerEvents = 'none'
     circlesCanvas.style.zIndex = '425'
     circlesCanvas.style.transformOrigin = '0 0'
+    circlesCanvas.style.willChange = 'transform'
     container.appendChild(circlesCanvas)
     circlesCanvasRef.current = circlesCanvas
 
@@ -236,6 +281,14 @@ function FastThermalAndCirclesOverlay({
 
       const size = map.getSize()
       if (size.x <= 0 || size.y <= 0) return
+
+      // Bloquear relación 1:1 exacta entre buffer interno del canvas y tamaño CSS para evitar óvalos/distorsión vertical
+      const pxWidth = `${size.x}px`
+      const pxHeight = `${size.y}px`
+      if (heatCanvas.style.width !== pxWidth) heatCanvas.style.width = pxWidth
+      if (heatCanvas.style.height !== pxHeight) heatCanvas.style.height = pxHeight
+      if (circlesCanvas.style.width !== pxWidth) circlesCanvas.style.width = pxWidth
+      if (circlesCanvas.style.height !== pxHeight) circlesCanvas.style.height = pxHeight
 
       if (heatCanvas.width !== size.x || heatCanvas.height !== size.y) {
         heatCanvas.width = size.x
@@ -364,16 +417,15 @@ function FastThermalAndCirclesOverlay({
       if (!heatCanvas || !circlesCanvas) return
 
       const scale = map.getZoomScale(e.zoom, map.getZoom())
-      const currentCenterPt = map.latLngToContainerPoint(map.getCenter())
       const targetCenterPt = map.latLngToContainerPoint(e.center)
       const half = map.getSize().divideBy(2)
-      const tx = half.x - targetCenterPt.x * scale + (targetCenterPt.x - currentCenterPt.x) * (1 - scale)
-      const ty = half.y - targetCenterPt.y * scale + (targetCenterPt.y - currentCenterPt.y) * (1 - scale)
+      const tx = half.x - targetCenterPt.x * scale
+      const ty = half.y - targetCenterPt.y * scale
 
       const transformStr = `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`
-      heatCanvas.style.transition = 'transform 0.22s cubic-bezier(0,0,0.25,1)'
+      heatCanvas.style.transition = 'transform 0.25s cubic-bezier(0,0,0.25,1)'
       heatCanvas.style.transform = transformStr
-      circlesCanvas.style.transition = 'transform 0.22s cubic-bezier(0,0,0.25,1)'
+      circlesCanvas.style.transition = 'transform 0.25s cubic-bezier(0,0,0.25,1)'
       circlesCanvas.style.transform = transformStr
     }
 
@@ -461,43 +513,81 @@ function createUserLocationPin(label: string = 'MI UBICACIÓN') {
   })
 }
 
-// Controller component to zoom/center programmatically on incident, district, or region change
+// Controller component to zoom/center ONLY on intentional user actions (never fighting manual zoom on 6s polling)
 function MapController({
-  selectedPoint,
-  selectedCoords,
-  targetCenter,
+  selectedPointId,
+  selectedPointLat,
+  selectedPointLng,
+  selectedCoordLat,
+  selectedCoordLng,
+  recenterAction,
   zoomAction,
   selectedDistrict,
   selectedRegion,
 }: {
-  selectedPoint?: HeatmapPoint | null
-  selectedCoords?: [number, number] | null
-  targetCenter?: [number, number] | null
-  zoomAction?: number | null
+  selectedPointId?: number | null
+  selectedPointLat?: number | null
+  selectedPointLng?: number | null
+  selectedCoordLat?: number | null
+  selectedCoordLng?: number | null
+  recenterAction?: { seq: number; lat: number; lng: number } | null
+  zoomAction?: { seq: number; delta: number } | null
   selectedDistrict?: string
   selectedRegion?: string
 }) {
   const map = useMap()
   const prevDistrictRef = useRef<string | undefined>(selectedDistrict)
   const prevRegionRef = useRef<string | undefined>(selectedRegion)
+  const lastSelectionKeyRef = useRef<string>('')
+  const lastRecenterSeqRef = useRef<number>(0)
+  const lastZoomSeqRef = useRef<number>(0)
 
   useEffect(() => {
+    const container = map.getContainer()
+    let rafId = 0
     const handleResize = () => {
-      map.invalidateSize()
+      if (rafId) cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => {
+        map.invalidateSize({ animate: false, pan: false })
+      })
     }
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => handleResize())
+      observer.observe(container)
+    }
+    // Ajuste inicial tras montar el layout flex/grid
+    const initTimer = window.setTimeout(handleResize, 60)
+    return () => {
+      window.clearTimeout(initTimer)
+      if (rafId) cancelAnimationFrame(rafId)
+      window.removeEventListener('resize', handleResize)
+      observer?.disconnect()
+    }
   }, [map])
 
+  // Solo enfoca una vez por incidente seleccionado y jamás revierte un zoom manual más cercano (17-22)
   useEffect(() => {
-    if (selectedCoords && selectedCoords[0] != null && selectedCoords[1] != null) {
-      const [lat, lng] = clampToLimaLand(selectedCoords[0], selectedCoords[1])
-      map.flyTo([lat, lng], 16, { duration: 0.65 })
-    } else if (selectedPoint && selectedPoint.lat && selectedPoint.lng) {
-      const [lat, lng] = clampToLimaLand(selectedPoint.lat, selectedPoint.lng)
-      map.flyTo([lat, lng], 16, { duration: 0.65 })
+    const hasCoords = selectedCoordLat != null && selectedCoordLng != null
+    const hasPoint = selectedPointLat != null && selectedPointLng != null
+    if (!hasCoords && !hasPoint) {
+      lastSelectionKeyRef.current = ''
+      return
     }
-  }, [selectedPoint, selectedCoords, map])
+    const selectionKey =
+      selectedPointId != null
+        ? `id:${selectedPointId}`
+        : `${Number(selectedCoordLat).toFixed(5)},${Number(selectedCoordLng).toFixed(5)}`
+    if (selectionKey === lastSelectionKeyRef.current) {
+      return
+    }
+    lastSelectionKeyRef.current = selectionKey
+    const rawLat = hasCoords ? (selectedCoordLat as number) : (selectedPointLat as number)
+    const rawLng = hasCoords ? (selectedCoordLng as number) : (selectedPointLng as number)
+    const [lat, lng] = clampToLimaLand(rawLat, rawLng, selectedPointId ?? 17)
+    map.flyTo([lat, lng], Math.max(map.getZoom(), 16), { duration: 0.55 })
+  }, [selectedPointId, selectedCoordLat, selectedCoordLng, selectedPointLat, selectedPointLng, map])
 
   // Auto-fly to district when selectedDistrict changes
   useEffect(() => {
@@ -507,12 +597,12 @@ function MapController({
     if (selectedDistrict) {
       const meta = getDistrictMeta(selectedDistrict)
       if (meta) {
-        map.flyTo([meta.lat, meta.lng], 14, { duration: 0.7 })
+        map.flyTo([meta.lat, meta.lng], 14, { duration: 0.65 })
       }
     } else if (selectedRegion === 'Callao') {
-      map.flyTo([-12.045, -77.118], 13, { duration: 0.7 })
+      map.flyTo([-12.045, -77.118], 13, { duration: 0.65 })
     } else {
-      map.flyTo([-12.0464, -77.0428], 12, { duration: 0.7 })
+      map.flyTo([-12.0464, -77.0428], 12, { duration: 0.65 })
     }
   }, [selectedDistrict, selectedRegion, map])
 
@@ -523,23 +613,25 @@ function MapController({
 
     if (selectedDistrict) return
     if (selectedRegion === 'Callao') {
-      map.flyTo([-12.045, -77.118], 13, { duration: 0.7 })
+      map.flyTo([-12.045, -77.118], 13, { duration: 0.65 })
     } else if (selectedRegion === 'Lima') {
-      map.flyTo([-12.065, -77.015], 12, { duration: 0.7 })
+      map.flyTo([-12.065, -77.015], 12, { duration: 0.65 })
     } else {
-      map.flyTo([-12.0464, -77.0428], 12, { duration: 0.7 })
+      map.flyTo([-12.0464, -77.0428], 12, { duration: 0.65 })
     }
   }, [selectedRegion, selectedDistrict, map])
 
   useEffect(() => {
-    if (targetCenter) {
-      map.flyTo(targetCenter, 15, { duration: 0.65 })
-    }
-  }, [targetCenter, map])
+    if (!recenterAction || recenterAction.seq === lastRecenterSeqRef.current) return
+    lastRecenterSeqRef.current = recenterAction.seq
+    map.flyTo([recenterAction.lat, recenterAction.lng], 15, { duration: 0.55 })
+  }, [recenterAction, map])
 
   useEffect(() => {
-    if (zoomAction === 1) map.zoomIn()
-    if (zoomAction === -1) map.zoomOut()
+    if (!zoomAction || zoomAction.seq === lastZoomSeqRef.current) return
+    lastZoomSeqRef.current = zoomAction.seq
+    if (zoomAction.delta > 0) map.zoomIn()
+    if (zoomAction.delta < 0) map.zoomOut()
   }, [zoomAction, map])
 
   return null
@@ -580,14 +672,23 @@ export default function IncidentsMap({
   userCoords,
   userLabel = 'TÚ',
 }: IncidentsMapProps) {
+  const googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim() || ''
   const defaultCenter: [number, number] = userCoords || [-12.0464, -77.0428]
   const [theme, setTheme] = useState<MapTheme>('dark')
-  const [zoomTrigger, setZoomTrigger] = useState<number | null>(null)
-  const [recenterTarget, setRecenterTarget] = useState<[number, number] | null>(null)
+  const [useGoogleEngine, setUseGoogleEngine] = useState<boolean>(Boolean(googleMapsApiKey))
+  const [zoomAction, setZoomAction] = useState<{ seq: number; delta: number } | null>(null)
+  const [recenterAction, setRecenterAction] = useState<{ seq: number; lat: number; lng: number } | null>(null)
+  const [gFocusState, setGFocusState] = useState<{ center: [number, number]; zoom: number; seq: number }>({
+    center: defaultCenter,
+    zoom: 12,
+    seq: 0,
+  })
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [heatVisible, setHeatVisible] = useState(showHeatCircles)
   const [circlesVisible, setCirclesVisible] = useState(showMarkers)
   const [internalRegion, setInternalRegion] = useState<string>('')
+  const prevGDistRef = useRef<string>(selectedDistrict)
+  const prevGRegRef = useRef<string | undefined>(controlledRegion)
 
   const activeRegion = controlledRegion !== undefined ? controlledRegion : internalRegion
 
@@ -635,14 +736,39 @@ export default function IncidentsMap({
     [filteredPoints, points, selectedPointId],
   )
 
+  const stableClamp = useCallback((lat: number, lng: number) => clampToLimaLand(lat, lng, 17), [])
+  const getNormalizedWeight = useCallback((p: HeatmapPoint) => {
+    const severityNorm = Math.min(1, Math.max(0, (p.severity ?? 5) / 10))
+    return 0.65 * (p.timeFactor ?? 0.65) + 0.35 * severityNorm
+  }, [])
+
+  // Sincronizar cambios intencionales de distrito/región hacia el motor opcional de Google Maps
+  useEffect(() => {
+    if (!useGoogleEngine) return
+    if (prevGDistRef.current === selectedDistrict && prevGRegRef.current === activeRegion) return
+    prevGDistRef.current = selectedDistrict
+    prevGRegRef.current = activeRegion
+    if (selectedDistrict) {
+      const meta = getDistrictMeta(selectedDistrict)
+      if (meta) {
+        setGFocusState((s) => ({ center: [meta.lat, meta.lng], zoom: 14, seq: s.seq + 1 }))
+      }
+    } else if (activeRegion === 'Callao') {
+      setGFocusState((s) => ({ center: [-12.045, -77.118], zoom: 13, seq: s.seq + 1 }))
+    } else if (activeRegion === 'Lima') {
+      setGFocusState((s) => ({ center: [-12.065, -77.015], zoom: 12, seq: s.seq + 1 }))
+    } else {
+      setGFocusState((s) => ({ center: [-12.0464, -77.0428], zoom: 12, seq: s.seq + 1 }))
+    }
+  }, [useGoogleEngine, selectedDistrict, activeRegion])
+
   const handleRecenter = () => {
-    setRecenterTarget([...defaultCenter])
-    setTimeout(() => setRecenterTarget(null), 500)
+    setRecenterAction((prev) => ({ seq: (prev?.seq ?? 0) + 1, lat: defaultCenter[0], lng: defaultCenter[1] }))
+    setGFocusState((s) => ({ center: [defaultCenter[0], defaultCenter[1]], zoom: 15, seq: s.seq + 1 }))
   }
 
   const handleZoom = (delta: number) => {
-    setZoomTrigger(delta)
-    setTimeout(() => setZoomTrigger(null), 100)
+    setZoomAction((prev) => ({ seq: (prev?.seq ?? 0) + 1, delta }))
   }
 
   return (
@@ -805,6 +931,20 @@ export default function IncidentsMap({
                 <Satellite className="h-3 w-3" />
                 <span>Satélite</span>
               </button>
+              {googleMapsApiKey && (
+                <button
+                  onClick={() => {
+                    setUseGoogleEngine((v) => !v)
+                    setThemeMenuOpen(false)
+                  }}
+                  className="mt-1 flex w-full items-center justify-between rounded-lg border border-slate-700/80 bg-slate-900/90 px-2.5 py-1.5 text-[11px] font-semibold text-blue-300 hover:bg-slate-800"
+                >
+                  <span>Motor Google Maps</span>
+                  <span className={useGoogleEngine ? 'text-emerald-400' : 'text-slate-400'}>
+                    {useGoogleEngine ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -827,88 +967,108 @@ export default function IncidentsMap({
         </span>
       </div>
 
-      {/* 3. LEAFLET MAP CONTAINER */}
-      <MapContainer
-        center={defaultCenter}
-        zoom={12}
-        minZoom={9}
-        maxZoom={22}
-        zoomControl={false}
-        preferCanvas={true}
-        wheelDebounceTime={15}
-        wheelPxPerZoomLevel={50}
-        className="h-full w-full"
-        style={{ background: '#070b14' }}
-      >
-        {theme === 'dark' && (
-          <>
-            <TileLayer
-              attribution='&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-              maxNativeZoom={15}
-              maxZoom={22}
-              keepBuffer={4}
-            />
-            <TileLayer
-              attribution=""
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
-              maxNativeZoom={15}
-              maxZoom={22}
-              keepBuffer={4}
-            />
-            <TileLayer
-              attribution=""
-              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-              className="dark-osm-detail"
-              minZoom={15}
-              maxNativeZoom={19}
-              maxZoom={22}
-              keepBuffer={4}
-            />
-          </>
-        )}
-
-        {theme === 'osm' && (
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maxNativeZoom={19}
-            maxZoom={22}
-            keepBuffer={4}
-          />
-        )}
-
-        {theme === 'satellite' && (
-          <TileLayer
-            attribution='&copy; <a href="https://www.esri.com/">Esri World Imagery</a>'
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            maxNativeZoom={17}
-            maxZoom={22}
-            keepBuffer={4}
-          />
-        )}
-
-        <MapController
-          selectedPoint={selectedPoint}
-          selectedCoords={selectedCoords}
-          targetCenter={recenterTarget}
-          zoomAction={zoomTrigger}
-          selectedDistrict={selectedDistrict}
-          selectedRegion={activeRegion}
-        />
-
-        {/* 4. Ultra-Fast 120 FPS Thermal Heatmap + Intensity Circles Canvas Layer */}
-        <FastThermalAndCirclesOverlay
+      {/* 3. MAP ENGINE: OFFICIAL GOOGLE MAPS (cuando hay API key) o CARTODB + LEAFLET HD (sin key/facturación) */}
+      {useGoogleEngine && googleMapsApiKey ? (
+        <GoogleMapsCanvas
+          apiKey={googleMapsApiKey}
           points={filteredPoints}
+          theme={theme}
           heatVisible={heatVisible}
           circlesVisible={circlesVisible}
           selectedPointId={selectedPointId}
+          selectedCoords={selectedCoords}
+          focusCenter={gFocusState.center}
+          focusZoom={gFocusState.zoom}
+          focusSeq={gFocusState.seq}
+          zoomSeq={zoomAction?.seq ?? 0}
+          zoomDelta={zoomAction?.delta ?? 0}
+          userCoords={userCoords}
+          clampCoord={stableClamp}
+          getNormalizedWeight={getNormalizedWeight}
           onSelectIncident={onSelectIncident}
+          onFallbackToLeaflet={() => setUseGoogleEngine(false)}
         />
+      ) : (
+        <MapContainer
+          center={defaultCenter}
+          zoom={12}
+          minZoom={9}
+          maxZoom={22}
+          zoomControl={false}
+          preferCanvas={true}
+          wheelDebounceTime={10}
+          wheelPxPerZoomLevel={45}
+          className="h-full w-full"
+          style={{ background: '#070b14' }}
+        >
+          {theme === 'dark' && (
+            <TileLayer
+              attribution='&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+              className="dark-esri-street-tiles"
+              maxNativeZoom={19}
+              maxZoom={22}
+              keepBuffer={6}
+              updateWhenIdle={false}
+              updateWhenZooming={true}
+            />
+          )}
 
-        {/* 5. Dynamic User Location Pulsing Pin */}
-        {userCoords && <Marker position={userCoords} icon={createUserLocationPin(userLabel)} />}
-      </MapContainer>
+          {theme === 'osm' && (
+            <TileLayer
+              attribution='&copy; <a href="https://www.esri.com/">Esri World Street Map</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+              maxNativeZoom={19}
+              maxZoom={22}
+              keepBuffer={6}
+              updateWhenIdle={false}
+              updateWhenZooming={true}
+            />
+          )}
+
+          {theme === 'satellite' && (
+            <>
+              <TileLayer
+                attribution='&copy; <a href="https://www.esri.com/">Esri World Imagery</a>'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                maxNativeZoom={18}
+                maxZoom={22}
+                keepBuffer={6}
+              />
+              <TileLayer
+                attribution=""
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                maxNativeZoom={18}
+                maxZoom={22}
+              />
+            </>
+          )}
+
+          <MapController
+            selectedPointId={selectedPointId}
+            selectedPointLat={selectedPoint?.lat}
+            selectedPointLng={selectedPoint?.lng}
+            selectedCoordLat={selectedCoords?.[0]}
+            selectedCoordLng={selectedCoords?.[1]}
+            recenterAction={recenterAction}
+            zoomAction={zoomAction}
+            selectedDistrict={selectedDistrict}
+            selectedRegion={activeRegion}
+          />
+
+          {/* 4. Ultra-Fast 120 FPS Thermal Heatmap + Intensity Circles Canvas Layer */}
+          <FastThermalAndCirclesOverlay
+            points={filteredPoints}
+            heatVisible={heatVisible}
+            circlesVisible={circlesVisible}
+            selectedPointId={selectedPointId}
+            onSelectIncident={onSelectIncident}
+          />
+
+          {/* 5. Dynamic User Location Pulsing Pin */}
+          {userCoords && <Marker position={userCoords} icon={createUserLocationPin(userLabel)} />}
+        </MapContainer>
+      )}
     </div>
   )
 }
