@@ -145,7 +145,6 @@ export default function ReportsPage() {
             <option value="PUBLISHED">Publicado</option>
             <option value="ALL">Cualquier estado</option>
             <option value="PENDING_REVIEW">Pendiente de confirmación</option>
-            <option value="VALIDATED">Validado</option>
             <option value="REJECTED">Descartado</option>
           </select>
 

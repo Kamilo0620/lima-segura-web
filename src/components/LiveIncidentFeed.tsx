@@ -132,7 +132,7 @@ export default function LiveIncidentFeed({
                 </p>
 
                 <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
-                  <span>{inc.districtName || 'Lima'}</span>
+                  <span>{inc.districtName || 'Distrito no identificado'}</span>
                   <span className="flex items-center text-slate-400 group-hover:text-red-400">
                     Detalles
                     <ChevronRight className="h-3 w-3" />

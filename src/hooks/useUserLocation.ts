@@ -47,6 +47,30 @@ export function computeRisk(lat: number, lng: number, points: HeatmapPoint[]): L
   return { score, level, nearbyCount, radiusMeters: RISK_RADIUS_METERS }
 }
 
+const normalize = (text: string) =>
+  text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+/**
+ * Busca el distrito SOLO en los campos de la dirección (no en el texto completo, que siempre
+ * termina en "..., Lima, Perú" y hacía que todo saliera como "Lima").
+ * Si varios coinciden, gana el nombre más largo (ej. "San Juan de Lurigancho" antes que "Lurigancho").
+ */
+function detectDistrict(address: Record<string, string>): string | null {
+  const fields = ['city_district', 'suburb', 'town', 'village', 'municipality', 'county']
+    .map((key) => address[key])
+    .filter((value): value is string => Boolean(value))
+    .map(normalize)
+
+  const matches = LIMA_DISTRICTS.filter((name) => {
+    const target = normalize(name)
+    // "Lima" (Cercado) solo cuenta si el distrito dice exactamente eso. El campo "city" no se usa: en toda la ciudad dice "Lima"
+    if (target === 'lima') return fields.some((f) => f === 'lima' || f === 'cercado de lima')
+    return fields.some((f) => f === target || f.includes(target))
+  })
+  if (matches.length === 0) return null
+  return matches.sort((x, y) => y.length - x.length)[0]
+}
+
 export function useUserLocation(points: HeatmapPoint[]) {
   const [locationState, setLocationState] = useState<UserLocationState>({
     lat: null,
@@ -80,8 +104,7 @@ export function useUserLocation(points: HeatmapPoint[]) {
             const num = data.address.house_number ? ` ${data.address.house_number}` : ''
             const suburb = data.address.suburb || data.address.city_district || ''
             if (road) address = `${road}${num}${suburb && suburb !== road ? ', ' + suburb : ''}`
-            const text = `${data.display_name ?? ''} ${suburb}`.toLowerCase()
-            district = LIMA_DISTRICTS.find((d) => text.includes(d.toLowerCase())) ?? null
+            district = detectDistrict(data.address)
           }
         } catch {
           // si falla, nos quedamos con las coordenadas como texto

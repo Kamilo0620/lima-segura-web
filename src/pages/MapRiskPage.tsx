@@ -252,7 +252,7 @@ export default function MapRiskPage() {
                 ) : (
                   filteredIncidents.slice(0, 60).map((inc) => {
                     const typeCfg = INCIDENT_TYPE_CONFIG[inc.incidentType] || INCIDENT_TYPE_CONFIG.OTHER
-                    const dist = inc.districtName || inc.district?.name || 'Lima'
+                    const dist = inc.districtName || inc.district?.name || 'Distrito no identificado'
                     return (
                       <button
                         key={inc.id}

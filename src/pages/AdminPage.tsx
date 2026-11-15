@@ -149,13 +149,13 @@ export default function AdminPage() {
   }
 
   // Moderate incident (Approve / Reject)
-  const handleModerateIncident = async (id: number, status: 'VALIDATED' | 'REJECTED') => {
+  const handleModerateIncident = async (id: number, status: 'PUBLISHED' | 'REJECTED') => {
     try {
       await adminService.reviewIncident(id, {
         status,
-        reviewNotes: status === 'VALIDATED' ? 'Aprobado por consola admin' : 'Rechazado por inconsistencia',
+        reviewNotes: status === 'PUBLISHED' ? 'Aprobado por consola admin' : 'Rechazado por inconsistencia',
       })
-      toast.success(status === 'VALIDATED' ? 'Incidente publicado en mapa' : 'Incidente descartado')
+      toast.success(status === 'PUBLISHED' ? 'Incidente publicado en mapa' : 'Incidente descartado')
       setPendingIncidents((prev) => prev.filter((i) => i.id !== id))
     } catch (err: any) {
       toast.error('Error al procesar moderación')
@@ -645,7 +645,7 @@ export default function AdminPage() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       <button
-                        onClick={() => handleModerateIncident(inc.id, 'VALIDATED')}
+                        onClick={() => handleModerateIncident(inc.id, 'PUBLISHED')}
                         className="flex items-center gap-1 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg hover:bg-emerald-500 transition"
                       >
                         <CheckCircle className="h-4 w-4" />
