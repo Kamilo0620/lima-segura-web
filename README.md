@@ -93,18 +93,19 @@ Se define en el archivo `.env` de la raíz. Vite solo expone las variables que e
 
 ---
 
-## 🚀 Build y despliegue
+## 🚀 Despliegue (Vercel)
 
-```bash
-npm run build      # genera la carpeta dist/
-npm run preview    # sirve dist/ localmente para revisarlo
-```
+La web está desplegada en **Vercel** (HTTPS automático) y consume el backend desplegado en **AWS EC2 + RDS** por HTTPS (ver README del backend).
 
-Para desplegar:
-1. Definir `VITE_API_URL` con la URL pública del backend **antes** de `npm run build` (por ejemplo `https://api.midominio.com/api/v1`).
-2. Subir la carpeta `dist/` a un hosting estático (AWS Amplify, o S3 + CloudFront, entre otros).
-3. Configurar el hosting para que todas las rutas respondan con `index.html` (la app usa rutas del lado del cliente como `/reportes` o `/incidents/12`).
-4. Agregar el dominio de la web a `CORS_ALLOWED_ORIGINS` en el backend.
+1. En [vercel.com](https://vercel.com) → *Add New… → Project* → importar el repo `lima-segura-web`.
+2. *Framework Preset:* **Vite** (build `npm run build`, salida `dist`).
+3. *Environment Variables:* `VITE_API_URL` = `https://<DOMINIO_DEL_BACKEND>/api/v1`.
+4. *Deploy*. Cada push a `main` vuelve a desplegar solo.
+5. Agregar la URL de Vercel (ej. `https://lima-segura.vercel.app`) a `WEB_URL` en el `.env` del backend para que CORS la acepte.
+
+`vercel.json` redirige todas las rutas a `index.html`, para que funcionen las rutas de React Router al recargar (`/reportes`, `/incidents/12`…).
+
+Para compilar localmente: `npm run build` (genera `dist/`) y `npm run preview` para revisarlo.
 
 ---
 
