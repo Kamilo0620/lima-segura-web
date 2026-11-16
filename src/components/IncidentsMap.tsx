@@ -482,11 +482,23 @@ function MapController({
   const prevRegionRef = useRef<string | undefined>(selectedRegion)
 
   useEffect(() => {
+    // Recalcula el tamaño del mapa cuando cambia su contenedor (por ejemplo al
+    // ocultar el menú lateral). Sin esto, el mapa de calor se estira y se ve con rayas.
     const handleResize = () => {
-      map.invalidateSize()
+      map.invalidateSize({ animate: false, pan: false })
     }
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => handleResize())
+      observer.observe(map.getContainer())
+    }
+    const firstFix = window.setTimeout(handleResize, 300)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      observer?.disconnect()
+      window.clearTimeout(firstFix)
+    }
   }, [map])
 
   useEffect(() => {
@@ -687,16 +699,16 @@ export default function IncidentsMap({
             onChange={(e) => onSelectTimeFilter && onSelectTimeFilter(e.target.value)}
             className="appearance-none rounded-xl border border-slate-800 bg-[#0d1424]/90 py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-200 shadow-xl backdrop-blur-md focus:border-red-500 focus:outline-none cursor-pointer"
           >
-            <option value="Ahora">🕒 Ahora (Todos activos)</option>
+            <option value="Ahora">Ahora (Todos activos)</option>
             <option value="1h">Última 1 hora</option>
             <option value="6h">Últimas 6 horas</option>
             <option value="24h">Últimas 24 horas</option>
             <option value="48h">Últimas 48 horas</option>
             <option value="7d">Últimos 7 días</option>
-            <option value="MADRUGADA">🌙 Madrugada (00:00 – 06:00)</option>
-            <option value="MANANA">🌅 Mañana (06:00 – 12:00)</option>
-            <option value="TARDE">☀️ Tarde (12:00 – 18:00)</option>
-            <option value="NOCHE">🌃 Noche (18:00 – 24:00)</option>
+            <option value="MADRUGADA">Madrugada (00:00 – 06:00)</option>
+            <option value="MANANA">Mañana (06:00 – 12:00)</option>
+            <option value="TARDE">Tarde (12:00 – 18:00)</option>
+            <option value="NOCHE">Noche (18:00 – 24:00)</option>
           </select>
           <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
         </div>

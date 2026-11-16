@@ -250,16 +250,16 @@ export default function HomePage() {
                   onChange={(e) => setSelectedTimeFilter(e.target.value)}
                   className="rounded-xl border border-slate-800 bg-[#070b14] px-3 py-1.5 text-xs font-semibold text-slate-200 focus:border-red-500 focus:outline-none"
                 >
-                  <option value="Ahora">🕒 Ahora (Todos activos)</option>
+                  <option value="Ahora">Ahora (Todos activos)</option>
                   <option value="1h">Última 1 hora</option>
                   <option value="6h">Últimas 6 horas</option>
                   <option value="24h">Últimas 24 horas</option>
                   <option value="48h">Últimas 48 horas</option>
                   <option value="7d">Últimos 7 días</option>
-                  <option value="MADRUGADA">🌙 Madrugada (00:00 – 06:00)</option>
-                  <option value="MANANA">🌅 Mañana (06:00 – 12:00)</option>
-                  <option value="TARDE">☀️ Tarde (12:00 – 18:00)</option>
-                  <option value="NOCHE">🌃 Noche (18:00 – 24:00)</option>
+                  <option value="MADRUGADA">Madrugada (00:00 – 06:00)</option>
+                  <option value="MANANA">Mañana (06:00 – 12:00)</option>
+                  <option value="TARDE">Tarde (12:00 – 18:00)</option>
+                  <option value="NOCHE">Noche (18:00 – 24:00)</option>
                 </select>
 
                 <select

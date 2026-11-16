@@ -177,7 +177,7 @@ export default function AdminPage() {
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-4 py-2 text-xs font-bold text-white hover:from-red-500 hover:to-red-600 transition shadow-lg shadow-red-600/30 active:scale-95"
             >
               <Play className="h-4 w-4" />
-              <span>⚡ Forzar Ingesta para Todas las Fuentes</span>
+              <span>Forzar Ingesta para Todas las Fuentes</span>
             </button>
 
             <button
@@ -368,7 +368,7 @@ export default function AdminPage() {
 
                       <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
                         <span>Intervalo: cada {s.pollIntervalMinutes} min</span>
-                        <span>Estado: {s.active ? '🟢 Activo' : '⚪ Pausado'}</span>
+                        <span>Estado: {s.active ? 'Activo' : 'Pausado'}</span>
                       </div>
                     </div>
 
