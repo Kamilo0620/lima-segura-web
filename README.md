@@ -115,7 +115,7 @@ Proyecto del curso **CS 2031 - Desarrollo Basado en Plataformas**, UTEC.
 
 | Integrante | Aportes principales | Participación |
 |---|---|---|
-| Kamilo Alfonso Neyra Chipana | Líder; web (React) y UI/UX; integración backend–web; reportes ciudadanos y confirmaciones; seguridad; documentación | 100 % |
+| Kamilo Alfonso Neyra Chipana |web (React) y UI/UX; integración backend–web; reportes ciudadanos y confirmaciones; seguridad; documentación | 100 % |
 | Jasyr Arnaldo Valdez Parra | Ingesta de noticias con IA (Gemini); filtros y mapa de calor; mobile | 100 % |
 | Elías Emanuel Paz Raymondi | Mobile (Expo) | 100 % |
 | **Total** | | **100 %** |
