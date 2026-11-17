@@ -106,7 +106,7 @@ export default function ReportIncidentModal({ isOpen, onClose, onIncidentReporte
     'w-full rounded-xl border border-slate-800 bg-[#0d1527] px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-red-500 focus:outline-none'
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
       <div className="relative max-h-[95vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-800 bg-[#0a101d] p-6 text-slate-100 shadow-2xl">
         <button
           onClick={close}

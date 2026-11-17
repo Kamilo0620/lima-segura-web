@@ -80,7 +80,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`relative flex flex-col justify-between border-r border-slate-800/80 bg-[#070b14] text-slate-300 shrink-0 min-h-[calc(100vh-64px)] transition-all duration-200 ease-in-out ${
+      className={`relative z-[1010] flex flex-col justify-between border-r border-slate-800/80 bg-[#070b14] text-slate-300 shrink-0 min-h-[calc(100vh-64px)] transition-all duration-200 ease-in-out ${
         isOpen ? 'w-64 p-3.5' : 'w-16 p-2 items-center'
       }`}
     >
@@ -131,7 +131,7 @@ export default function Sidebar() {
                 {isOpen ? (
                   <span className="truncate">{item.label}</span>
                 ) : (
-                  <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xl group-hover:block">
+                  <span className="pointer-events-none absolute left-14 z-[1200] hidden whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xl group-hover:block">
                     {item.label}
                   </span>
                 )}
