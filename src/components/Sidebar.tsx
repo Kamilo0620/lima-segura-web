@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import {
   BarChart3,
   Bell,
@@ -8,7 +9,6 @@ import {
   HelpCircle,
   Info,
   LayoutDashboard,
-  Map,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -17,6 +17,7 @@ import {
 
 export default function Sidebar() {
   const location = useLocation()
+  const { isAdmin } = useAuth()
   const [lastUpdateTime, setLastUpdateTime] = useState('')
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try {
@@ -67,14 +68,14 @@ export default function Sidebar() {
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { label: 'Mapa de riesgo', path: '/mapa', icon: Map },
     { label: 'Reportes', path: '/reportes', icon: FileText },
     { label: 'Mis alertas', path: '/alertas', icon: Bell },
     { label: 'Histórico', path: '/historico', icon: Clock },
     { label: 'Estadísticas', path: '/estadisticas', icon: BarChart3 },
     { label: 'Comunidad', path: '/comunidad', icon: Users },
     { label: 'Configuración', path: '/configuracion', icon: Settings },
-    { label: 'Ayuda', path: '/ayuda', icon: HelpCircle },
+    // La ayuda es para ciudadanos; el administrador no la necesita.
+    ...(isAdmin ? [] : [{ label: 'Ayuda', path: '/ayuda', icon: HelpCircle }]),
   ]
 
   return (

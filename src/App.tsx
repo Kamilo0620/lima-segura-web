@@ -7,7 +7,6 @@ import MainLayout from './layouts/MainLayout'
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
-const MapRiskPage = lazy(() => import('./pages/MapRiskPage'))
 const ReportsPage = lazy(() => import('./pages/ReportsPage'))
 const AlertsPage = lazy(() => import('./pages/AlertsPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
@@ -36,7 +35,7 @@ export default function App() {
         {/* Public & Application routes with MainLayout */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/mapa" element={<MapRiskPage />} />
+          <Route path="/mapa" element={<Navigate to="/" replace />} />
           <Route path="/reportes" element={<ReportsPage />} />
           <Route path="/historico" element={<HistoryPage />} />
           <Route path="/estadisticas" element={<AnalyticsPage />} />

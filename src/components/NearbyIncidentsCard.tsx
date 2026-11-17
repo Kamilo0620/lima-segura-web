@@ -2,7 +2,7 @@ import { Car, Crosshair, Footprints, Hand, ShieldAlert } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { IncidentSummary, IncidentType } from '../types'
-import { formatTimeAgo } from '../utils/constants'
+import { formatTimeAgo, parseServerDate } from '../utils/constants'
 import { distanceMeters, formatDistance } from '../utils/format'
 
 interface NearbyIncidentsCardProps {
@@ -75,7 +75,7 @@ export default function NearbyIncidentsCard({ incidents = [], userCoords, onSele
                   </span>
                   <span className="text-[9px] text-slate-400">
                     {inc.occurredAt
-                      ? new Date(inc.occurredAt).toLocaleTimeString('es-PE', {
+                      ? parseServerDate(inc.occurredAt).toLocaleTimeString('es-PE', {
                           hour: '2-digit',
                           minute: '2-digit',
                           hour12: false,
