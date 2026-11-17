@@ -10,6 +10,10 @@
   filter: invert(100%) hue-rotate(185deg) brightness(88%) contrast(96%) saturate(45%);
 }
 
+.dark-esri-street-tiles {
+  filter: invert(93%) hue-rotate(185deg) brightness(86%) contrast(106%) saturate(45%);
+}
+
 .leaflet-popup-content-wrapper {
   background: #0f172a !important;
   color: #f8fafc !important;
