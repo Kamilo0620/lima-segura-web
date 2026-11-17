@@ -7,7 +7,7 @@ import EmptyState from '../components/EmptyState'
 import ErrorMessage from '../components/ErrorMessage'
 import { useFetch } from '../hooks/useFetch'
 import { incidentService } from '../services/incidentService'
-import { INCIDENT_TYPE_CONFIG, formatDateTime } from '../utils/constants'
+import { INCIDENT_TYPE_CONFIG, formatDateTime, parseServerDate } from '../utils/constants'
 
 const PERIODS = {
   '7d': { label: 'Últimos 7 días', days: 7 },
@@ -40,7 +40,7 @@ export default function HistoryPage() {
   const monthly = useMemo(() => {
     const map = new Map<string, { label: string; total: number; citizen: number }>()
     for (const inc of incidents) {
-      const d = new Date(inc.occurredAt)
+      const d = parseServerDate(inc.occurredAt)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       const label = d.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' })
       const row = map.get(key) ?? { label, total: 0, citizen: 0 }

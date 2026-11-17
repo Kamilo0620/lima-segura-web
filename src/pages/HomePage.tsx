@@ -19,8 +19,7 @@ import {
   INCIDENT_TYPE_CONFIG,
   getDistrictMeta,
   matchesIncidentSummaryFilters,
-  normalizeText,
-} from '../utils/constants'
+  normalizeText, parseServerDate } from '../utils/constants'
 import { Filter, RotateCcw } from 'lucide-react'
 
 const STREET_CRIME_TYPES: IncidentType[] = [
@@ -74,7 +73,7 @@ export default function HomePage() {
           const aReal = a.origin === 'NEWSPAPER' || a.origin === 'YOUTUBE' || a.origin === 'CITIZEN' ? 1 : 0
           const bReal = b.origin === 'NEWSPAPER' || b.origin === 'YOUTUBE' || b.origin === 'CITIZEN' ? 1 : 0
           if (aReal !== bReal) return bReal - aReal
-          return new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()
+          return parseServerDate(b.occurredAt).getTime() - parseServerDate(a.occurredAt).getTime()
         })
         setRecentIncidents(sorted)
       }

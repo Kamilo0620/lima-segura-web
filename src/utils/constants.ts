@@ -340,7 +340,7 @@ export function matchesTimeFilter(
   let eventHourOfDay = 20
 
   if (occurredAt) {
-    const d = new Date(occurredAt)
+    const d = parseServerDate(occurredAt)
     if (!Number.isNaN(d.getTime())) {
       hoursAgo = Math.max(0, (Date.now() - d.getTime()) / (1000 * 60 * 60))
       eventHourOfDay = d.getHours()
@@ -407,10 +407,23 @@ export function matchesIncidentSummaryFilters(
   return true
 }
 
+/**
+ * El backend guarda y envía las fechas en hora UTC, pero sin la "Z" del final
+ * (ej. "2026-11-17T02:17:00"). Sin esa marca, el navegador las leía como hora de Lima
+ * y se veían 5 horas adelantadas ("17 nov., 02:17" cuando en Lima eran las 21:17 del 16).
+ * Aquí les agregamos la "Z" para que el navegador las convierta a la hora local.
+ */
+export function parseServerDate(value?: string | null): Date {
+  if (!value) return new Date(NaN)
+  const hasZone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(value)
+  return new Date(hasZone ? value : `${value}Z`)
+}
+
 export function formatDateTime(isoString?: string): string {
   if (!isoString) return 'Desconocido'
   try {
-    const d = new Date(isoString)
+    const d = parseServerDate(isoString)
+    if (Number.isNaN(d.getTime())) return isoString
     return d.toLocaleString('es-PE', {
       day: '2-digit',
       month: 'short',
@@ -426,7 +439,7 @@ export function formatDateTime(isoString?: string): string {
 export function formatTimeAgo(isoString?: string): string {
   if (!isoString) return ''
   try {
-    const eventTime = new Date(isoString).getTime()
+    const eventTime = parseServerDate(isoString).getTime()
     if (Number.isNaN(eventTime)) return ''
     const diffMs = Math.max(60_000, Date.now() - eventTime)
     const totalMins = Math.floor(diffMs / 60_000)
